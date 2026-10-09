@@ -30,4 +30,13 @@ public class UserController {
                 userService.checkUserIdDuplicate(userId)
         );
     }
+
+    @Operation(summary = "닉네임 중복확인")
+    @GetMapping("/check-nickname")
+    public ResponseEntity<Boolean> checkNicknameDuplicate(
+            @RequestParam String nickname) {
+        return ResponseEntity.ok(
+                userService.checkNicknameDuplicate(nickname)
+        );
+    }
 }

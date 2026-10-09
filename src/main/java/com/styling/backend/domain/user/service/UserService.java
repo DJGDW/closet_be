@@ -75,4 +75,9 @@ public class UserService {
     public boolean checkUserIdDuplicate(String userId) {
         return !userRepository.existsByUserId(userId);
     }
+
+    @Transactional(readOnly = true)
+    public boolean checkNicknameDuplicate(String nickname) {
+        return !userRepository.existsByNickname(nickname);
+    }
 }
