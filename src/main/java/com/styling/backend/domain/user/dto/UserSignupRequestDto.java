@@ -1,5 +1,6 @@
 package com.styling.backend.domain.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -16,6 +17,19 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
+@JsonPropertyOrder({
+        "userName",
+        "userId",
+        "userPw",
+        "phoneNumber",
+        "birthDate",
+        "email",
+        "gender",
+        "body",
+        "profilePic",
+        "nickname",
+        "styleTypePks"
+})
 public class UserSignupRequestDto {
 
     @NotBlank
@@ -43,16 +57,26 @@ public class UserSignupRequestDto {
     @NotNull
     private UserBodyInfo body;
 
-    @NotNull
-    private List<Long> styleTypePks;
+    private String profilePic;
 
     private String nickname;
 
-    private String profilePic;
+    @NotNull
+    private List<Long> styleTypePks;
 
     @Getter
     @Setter
     @NoArgsConstructor
+    @JsonPropertyOrder({
+            "tall",
+            "weight",
+            "chestSize",
+            "waistSize",
+            "shoulderWidth",
+            "hips",
+            "thigh",
+            "calf"
+    })
     public static class UserBodyInfo {
 
         @NotNull
