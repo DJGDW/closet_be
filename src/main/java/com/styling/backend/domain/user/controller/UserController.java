@@ -1,8 +1,11 @@
 package com.styling.backend.domain.user.controller;
 
+import com.styling.backend.domain.user.dto.UserLoginRequestDto;
+import com.styling.backend.domain.user.dto.UserLoginResponseDto;
 import com.styling.backend.domain.user.dto.UserSignupRequestDto;
 import com.styling.backend.domain.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,9 +20,16 @@ public class UserController {
     @Operation(summary = "회원가입")
     @PostMapping("/signup")
     public ResponseEntity<Void> signup(
-            @RequestBody UserSignupRequestDto request) {
+            @Valid @RequestBody UserSignupRequestDto request) {
         userService.signup(request);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "로그인")
+    @PostMapping("/login")
+    public ResponseEntity<UserLoginResponseDto> login(
+            @Valid @RequestBody UserLoginRequestDto request) {
+        return ResponseEntity.ok(userService.login(request));
     }
 
     @Operation(summary = "아이디 중복확인")
