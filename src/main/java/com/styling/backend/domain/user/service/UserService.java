@@ -5,12 +5,12 @@ import com.styling.backend.domain.user.entity.StyleType;
 import com.styling.backend.domain.user.entity.StyleTypeUser;
 import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.entity.UserBody;
+import com.styling.backend.domain.user.mapper.UserMapper;
 import com.styling.backend.domain.user.repository.StyleTypeRepository;
 import com.styling.backend.domain.user.repository.StyleTypeUserRepository;
 import com.styling.backend.domain.user.repository.UserBodyRepository;
 import com.styling.backend.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +22,7 @@ public class UserService {
     private final UserBodyRepository userBodyRepository;
     private final StyleTypeRepository styleTypeRepository;
     private final StyleTypeUserRepository styleTypeUserRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
 
     @Transactional
     public void signup(UserSignupRequestDto request) {
@@ -31,17 +31,7 @@ public class UserService {
             throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
         }
 
-        User user = new User(
-                request.getUserName(),
-                request.getUserId(),
-                passwordEncoder.encode(request.getUserPw()),
-                request.getPhoneNumber(),
-                request.getBirthDate(),
-                request.getEmail(),
-                request.getNickname(),
-                request.getGender(),
-                request.getProfilePic()
-        );
+        User user = userMapper.toEntity(request);
 
         userRepository.save(user);
 
@@ -64,7 +54,9 @@ public class UserService {
         for (Long typePk : request.getStyleTypePks()) {
             StyleType styleType = styleTypeRepository.findById(typePk)
                     .orElseThrow(() ->
-                            new IllegalArgumentException("존재하지 않는 스타일 유형입니다: " + typePk));
+                            new IllegalArgumentException(
+                                    "존재하지 않는 스타일 유형입니다: " + typePk
+                            ));
 
             StyleTypeUser styleTypeUser = new StyleTypeUser(user, styleType);
             styleTypeUserRepository.save(styleTypeUser);
