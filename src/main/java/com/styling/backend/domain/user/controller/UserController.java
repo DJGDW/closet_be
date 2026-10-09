@@ -21,4 +21,13 @@ public class UserController {
         userService.signup(request);
         return ResponseEntity.ok().build();
     }
+
+    @Operation(summary = "아이디 중복확인")
+    @GetMapping("/check-id")
+    public ResponseEntity<Boolean> checkUserIdDuplicate(
+            @RequestParam String userId) {
+        return ResponseEntity.ok(
+                userService.checkUserIdDuplicate(userId)
+        );
+    }
 }

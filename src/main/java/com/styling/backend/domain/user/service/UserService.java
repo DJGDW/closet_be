@@ -70,4 +70,9 @@ public class UserService {
             styleTypeUserRepository.save(styleTypeUser);
         }
     }
+
+    @Transactional(readOnly = true)
+    public boolean checkUserIdDuplicate(String userId) {
+        return !userRepository.existsByUserId(userId);
+    }
 }
