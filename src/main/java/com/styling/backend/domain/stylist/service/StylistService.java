@@ -16,13 +16,13 @@ import com.styling.backend.domain.stylist.repository.StylistRepository;
 import com.styling.backend.domain.stylist.repository.StylistStyleTypeRepository;
 import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.repository.UserRepository;
+import com.styling.backend.exception.BusinessException;
+import com.styling.backend.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashSet;
 import java.util.List;
@@ -48,42 +48,33 @@ public class StylistService {
 
         if (authentication == null || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof String userId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."
-            );
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
 
         User user = userRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "사용자 정보를 찾을 수 없습니다."
-                ));
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.INVALID_CREDENTIALS));
 
         if (stylistRepository.existsByUser_UserPk(user.getUserPk())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "이미 스타일리스트로 등록되어 있습니다."
-            );
+            throw new BusinessException(ErrorCode.STYLIST_ALREADY_REGISTERED);
         }
 
         Location location = locationRepository.findById(request.getLocationPk())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "존재하지 않는 활동 지역입니다."
-                ));
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.LOCATION_NOT_FOUND));
 
         List<Long> styleTypePks = request.getStyleTypePks();
         Set<Long> uniqueStyleTypePks = new HashSet<>(styleTypePks);
 
         if (uniqueStyleTypePks.size() != styleTypePks.size()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "중복된 스타일 유형이 있습니다."
-            );
+            throw new BusinessException(ErrorCode.DUPLICATE_STYLE_TYPE);
         }
 
-        List<StyleType> styleTypes = styleTypeRepository.findAllById(styleTypePks);
+        List<StyleType> styleTypes =
+                styleTypeRepository.findAllById(styleTypePks);
 
         if (styleTypes.size() != uniqueStyleTypePks.size()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "존재하지 않는 스타일 유형이 포함되어 있습니다."
-            );
+            throw new BusinessException(ErrorCode.STYLE_TYPE_NOT_FOUND);
         }
 
         List<StylistRegisterRequestDto.StylistPlanRequestDto> planRequests =
@@ -91,20 +82,17 @@ public class StylistService {
 
         Set<Integer> uniquePlanPks = new HashSet<>();
 
-        for (StylistRegisterRequestDto.StylistPlanRequestDto planRequest : planRequests) {
+        for (StylistRegisterRequestDto.StylistPlanRequestDto planRequest
+                : planRequests) {
             if (!uniquePlanPks.add(planRequest.getPlanPk())) {
-                throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "중복된 플랜이 있습니다."
-                );
+                throw new BusinessException(ErrorCode.DUPLICATE_PLAN);
             }
         }
 
         List<Plan> plans = planRepository.findAllById(uniquePlanPks);
 
         if (plans.size() != uniquePlanPks.size()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "존재하지 않는 플랜이 포함되어 있습니다."
-            );
+            throw new BusinessException(ErrorCode.PLAN_NOT_FOUND);
         }
 
         Stylist stylist = stylistMapper.toEntity(request, user, location);
@@ -116,7 +104,8 @@ public class StylistService {
             stylistStyleTypeRepository.save(stylistStyleType);
         }
 
-        for (StylistRegisterRequestDto.StylistPlanRequestDto planRequest : planRequests) {
+        for (StylistRegisterRequestDto.StylistPlanRequestDto planRequest
+                : planRequests) {
             Plan plan = plans.stream()
                     .filter(p -> p.getPlanPk().equals(planRequest.getPlanPk()))
                     .findFirst()
