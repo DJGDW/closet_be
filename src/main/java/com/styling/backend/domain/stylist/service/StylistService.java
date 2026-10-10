@@ -7,6 +7,7 @@ import com.styling.backend.domain.plan.repository.PlanRepository;
 import com.styling.backend.domain.styletype.entity.StyleType;
 import com.styling.backend.domain.styletype.repository.StyleTypeRepository;
 import com.styling.backend.domain.stylist.dto.StylistRegisterRequestDto;
+import com.styling.backend.domain.stylist.dto.response.StylistCheckResponseDto;
 import com.styling.backend.domain.stylist.entity.Stylist;
 import com.styling.backend.domain.stylist.entity.StylistPlan;
 import com.styling.backend.domain.stylist.entity.StylistStyleType;
@@ -98,6 +99,8 @@ public class StylistService {
         Stylist stylist = stylistMapper.toEntity(request, user, location);
         stylistRepository.save(stylist);
 
+        user.changeRole(1);
+
         for (StyleType styleType : styleTypes) {
             StylistStyleType stylistStyleType =
                     stylistMapper.toStyleTypeEntity(styleType, stylist);
@@ -117,5 +120,25 @@ public class StylistService {
 
             stylistPlanRepository.save(stylistPlan);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public StylistCheckResponseDto checkStylist() {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof String userId)) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        User user = userRepository.findByUserId(userId)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.INVALID_CREDENTIALS));
+
+        boolean isStylist =
+                stylistRepository.existsByUser_UserPk(user.getUserPk());
+
+        return new StylistCheckResponseDto(isStylist);
     }
 }
