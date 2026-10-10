@@ -1,4 +1,4 @@
-package com.styling.backend.domain.user.entity;
+package com.styling.backend.domain.styletype.entity;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;

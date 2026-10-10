@@ -3,12 +3,11 @@ package com.styling.backend.domain.user.service;
 import com.styling.backend.domain.user.dto.UserLoginRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginResponseDto;
 import com.styling.backend.domain.user.dto.UserSignupRequestDto;
-import com.styling.backend.domain.user.entity.StyleType;
+import com.styling.backend.domain.styletype.repository.StyleTypeRepository;
 import com.styling.backend.domain.user.entity.StyleTypeUser;
 import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.entity.UserBody;
 import com.styling.backend.domain.user.mapper.UserMapper;
-import com.styling.backend.domain.user.repository.StyleTypeRepository;
 import com.styling.backend.domain.user.repository.StyleTypeUserRepository;
 import com.styling.backend.domain.user.repository.UserBodyRepository;
 import com.styling.backend.domain.user.repository.UserRepository;
@@ -19,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.styling.backend.domain.styletype.entity.StyleType;
 
 @Service
 @RequiredArgsConstructor

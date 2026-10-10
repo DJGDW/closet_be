@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import com.styling.backend.domain.styletype.entity.StyleType;
 
 @Entity
 @Table(name = "style_type_user")
