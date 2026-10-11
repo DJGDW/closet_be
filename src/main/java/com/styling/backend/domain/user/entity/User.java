@@ -85,4 +85,8 @@ public class User {
     private void onUpdate() {
         this.updatedAt = Instant.now();
     }
+
+    public void changeRole(Integer role) {
+        this.role = role;
+    }
 }

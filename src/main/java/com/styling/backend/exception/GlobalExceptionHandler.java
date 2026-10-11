@@ -27,8 +27,10 @@ public class GlobalExceptionHandler {
 
         String field = e.getBindingResult()
                 .getFieldErrors()
-                .get(0)
-                .getField();
+                .stream()
+                .findFirst()
+                .map(error -> error.getField())
+                .orElse("");
 
         ErrorCode errorCode = switch (field) {
             case "userId" -> ErrorCode.USER_ID_REQUIRED;
