@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 
 import java.util.List;
 
@@ -51,5 +52,13 @@ public class PostController {
     ) {
         postReactionService.cancelReaction(postPk);
         return ResponseEntity.ok("게시글 반응이 취소되었습니다.");
+    }
+
+    @Operation(summary = "게시글 좋아요 및 싫어요 개수 조회")
+    @GetMapping("/{postPk}/reaction")
+    public ResponseEntity<PostReactionCountResponseDto> getReactionCount(
+            @PathVariable Long postPk
+    ) {
+        return ResponseEntity.ok(postReactionService.getReactionCount(postPk));
     }
 }

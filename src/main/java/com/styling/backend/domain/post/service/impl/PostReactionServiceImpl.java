@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 
 @Service
 @RequiredArgsConstructor
@@ -84,5 +85,21 @@ public class PostReactionServiceImpl implements PostReactionService {
         return userRepository.findByUserId(userId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("유저를 찾을 수 없습니다."));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PostReactionCountResponseDto getReactionCount(Long postPk) {
+        postRepository.findById(postPk)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("게시글을 찾을 수 없습니다."));
+
+        long likeCount =
+                postReactionRepository.countByPost_PostPkAndReactionType(postPk, 0);
+
+        long dislikeCount =
+                postReactionRepository.countByPost_PostPkAndReactionType(postPk, 1);
+
+        return new PostReactionCountResponseDto(likeCount, dislikeCount);
     }
 }
