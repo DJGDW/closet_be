@@ -46,10 +46,13 @@ public class UserBody {
     @Column(name = "calf")
     private Integer calf;
 
+    @Column(name = "leg")
+    private Integer leg;
+
     public UserBody(User user, Integer tall, BigDecimal weight,
                     Integer chestSize, Integer waistSize,
                     Integer shoulderWidth, Integer hips,
-                    Integer thigh, Integer calf) {
+                    Integer thigh, Integer calf, Integer leg) {
         this.user = user;
         this.tall = tall;
         this.weight = weight;
@@ -59,5 +62,6 @@ public class UserBody {
         this.hips = hips;
         this.thigh = thigh;
         this.calf = calf;
+        this.leg = leg;
     }
 }
