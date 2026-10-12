@@ -75,7 +75,8 @@ public class UserSignupRequestDto {
             "shoulderWidth",
             "hips",
             "thigh",
-            "calf"
+            "calf",
+            "leg"
     })
     public static class UserBodyInfo {
 
@@ -93,5 +94,6 @@ public class UserSignupRequestDto {
         private Integer hips;
         private Integer thigh;
         private Integer calf;
+        private Integer leg;
     }
 }

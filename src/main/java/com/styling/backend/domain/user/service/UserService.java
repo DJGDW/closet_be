@@ -46,20 +46,21 @@ public class UserService {
         userRepository.save(user);
 
         UserSignupRequestDto.UserBodyInfo body = request.getBody();
-
-        UserBody userBody = new UserBody(
-                user,
-                body.getTall(),
-                body.getWeight(),
-                body.getChestSize(),
-                body.getWaistSize(),
-                body.getShoulderWidth(),
-                body.getHips(),
-                body.getThigh(),
-                body.getCalf()
-        );
-
-        userBodyRepository.save(userBody);
+        if (body != null) {
+            UserBody userBody = new UserBody(
+                    user,
+                    body.getTall(),
+                    body.getWeight(),
+                    body.getChestSize(),
+                    body.getWaistSize(),
+                    body.getShoulderWidth(),
+                    body.getHips(),
+                    body.getThigh(),
+                    body.getCalf(),
+                    body.getLeg()
+            );
+            userBodyRepository.save(userBody);
+        }
 
         for (Long typePk : request.getStyleTypePks()) {
             StyleType styleType = styleTypeRepository.findById(typePk)
