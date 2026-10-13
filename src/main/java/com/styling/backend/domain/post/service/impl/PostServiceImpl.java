@@ -7,6 +7,10 @@ import com.styling.backend.domain.post.repository.HashtagRepository;
 import com.styling.backend.domain.post.repository.PostHashtagRepository;
 import com.styling.backend.domain.post.repository.PostRepository;
 import com.styling.backend.domain.post.service.PostService;
+import com.styling.backend.domain.ratio.entity.RatioType;
+import com.styling.backend.domain.ratio.repository.RatioTypeRepository;
+import com.styling.backend.domain.styletype.entity.StyleType;
+import com.styling.backend.domain.styletype.repository.StyleTypeRepository;
 import com.styling.backend.domain.stylist.entity.Stylist;
 import com.styling.backend.domain.stylist.repository.StylistRepository;
 import com.styling.backend.global.image.ImageService;
@@ -27,11 +31,18 @@ public class PostServiceImpl implements PostService {
     private final HashtagRepository hashtagRepository;
     private final PostHashtagRepository postHashtagRepository;
     private final StylistRepository stylistRepository;
+    private final StyleTypeRepository styleTypeRepository;
+    private final RatioTypeRepository ratioTypeRepository;
     private final ImageService imageService;
 
     @Override
     @Transactional
-    public void createPost(MultipartFile image, List<String> hashtags) {
+    public void createPost(
+            MultipartFile image,
+            Long typePk,
+            Long ratioPk,
+            List<String> hashtags
+    ) {
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
@@ -49,10 +60,29 @@ public class PostServiceImpl implements PostService {
             throw new IllegalArgumentException("게시글 이미지는 필수입니다.");
         }
 
+        if (typePk == null) {
+            throw new IllegalArgumentException("스타일 태그는 필수입니다.");
+        }
+
+        if (ratioPk == null) {
+            throw new IllegalArgumentException("체형 보완 태그는 필수입니다.");
+        }
+
+        StyleType styleType = styleTypeRepository.findById(typePk)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 스타일 태그입니다."));
+
+        RatioType ratioType = ratioTypeRepository.findById(ratioPk)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 체형 보완 태그입니다."));
+
         String imageUrl = imageService.uploadImage(image, "stylist/post");
 
-        Post post = postRepository.save(new Post(stylist, imageUrl));
+        Post post = postRepository.save(
+                new Post(stylist, imageUrl, styleType, ratioType)
+        );
 
+        // 자유 해시태그는 선택 사항이며 여러 개 등록 가능
         if (hashtags == null || hashtags.isEmpty()) {
             return;
         }
