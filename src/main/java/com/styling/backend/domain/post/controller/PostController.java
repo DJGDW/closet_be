@@ -1,5 +1,6 @@
 package com.styling.backend.domain.post.controller;
 
+import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 import com.styling.backend.domain.post.dto.PostReactionRequestDto;
 import com.styling.backend.domain.post.service.PostReactionService;
 import com.styling.backend.domain.post.service.PostService;
@@ -10,7 +11,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 
 import java.util.List;
 
@@ -26,9 +26,12 @@ public class PostController {
     @PostMapping(consumes = "multipart/form-data")
     public ResponseEntity<String> createPost(
             @RequestPart("image") MultipartFile image,
-            @RequestParam(value = "hashtags", required = false) List<String> hashtags
+            @RequestParam("typePk") Long typePk,
+            @RequestParam("ratioPk") Long ratioPk,
+            @RequestParam(value = "hashtags", required = false)
+            List<String> hashtags
     ) {
-        postService.createPost(image, hashtags);
+        postService.createPost(image, typePk, ratioPk, hashtags);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -59,6 +62,8 @@ public class PostController {
     public ResponseEntity<PostReactionCountResponseDto> getReactionCount(
             @PathVariable Long postPk
     ) {
-        return ResponseEntity.ok(postReactionService.getReactionCount(postPk));
+        return ResponseEntity.ok(
+                postReactionService.getReactionCount(postPk)
+        );
     }
 }
