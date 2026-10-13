@@ -6,6 +6,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "stylist")
 @Getter
@@ -28,9 +30,13 @@ public class Stylist {
     @JoinColumn(name = "location_pk", nullable = false)
     private Location location;
 
+    @Column(name = "rating", precision = 3, scale = 1, nullable = false)
+    private BigDecimal rating = BigDecimal.ZERO.setScale(1);
+
     public Stylist(String introduction, User user, Location location) {
         this.introduction = introduction;
         this.user = user;
         this.location = location;
+        this.rating = BigDecimal.ZERO.setScale(1);
     }
 }
