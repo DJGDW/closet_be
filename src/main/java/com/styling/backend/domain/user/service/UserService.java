@@ -1,9 +1,10 @@
 package com.styling.backend.domain.user.service;
 
+import com.styling.backend.domain.styletype.entity.StyleType;
+import com.styling.backend.domain.styletype.repository.StyleTypeRepository;
 import com.styling.backend.domain.user.dto.UserLoginRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginResponseDto;
 import com.styling.backend.domain.user.dto.UserSignupRequestDto;
-import com.styling.backend.domain.styletype.repository.StyleTypeRepository;
 import com.styling.backend.domain.user.entity.StyleTypeUser;
 import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.entity.UserBody;
@@ -18,7 +19,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.styling.backend.domain.styletype.entity.StyleType;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +31,7 @@ public class UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final BodyRatioService bodyRatioService;
 
     @Value("${jwt.access-token-expiration}")
     private long accessTokenExpiration;
@@ -46,6 +47,7 @@ public class UserService {
         userRepository.save(user);
 
         UserSignupRequestDto.UserBodyInfo body = request.getBody();
+
         if (body != null) {
             UserBody userBody = new UserBody(
                     user,
@@ -59,7 +61,10 @@ public class UserService {
                     body.getCalf(),
                     body.getLeg()
             );
+
             userBodyRepository.save(userBody);
+
+            bodyRatioService.calculateAndSave(userBody);
         }
 
         for (Long typePk : request.getStyleTypePks()) {
