@@ -58,4 +58,8 @@ public class Post {
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
+
+    public void increaseViewCount() {
+    this.viewCount = (this.viewCount == null ? 0 : this.viewCount) + 1;
+    }
 }

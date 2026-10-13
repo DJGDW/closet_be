@@ -4,6 +4,7 @@ import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 import com.styling.backend.domain.post.dto.PostReactionRequestDto;
 import com.styling.backend.domain.post.service.PostReactionService;
 import com.styling.backend.domain.post.service.PostService;
+import com.styling.backend.domain.post.service.PostViewService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class PostController {
 
     private final PostService postService;
     private final PostReactionService postReactionService;
+    private final PostViewService postViewService;
 
     @Operation(summary = "게시글 작성")
     @PostMapping(consumes = "multipart/form-data")
@@ -36,6 +38,15 @@ public class PostController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body("게시글이 등록되었습니다.");
+    }
+
+    @Operation(summary = "게시글 조회 기록 등록 및 조회수 증가")
+    @PostMapping("/{postPk}/view")
+    public ResponseEntity<String> recordPostView(
+            @PathVariable Long postPk
+    ) {
+        String message = postViewService.recordPostView(postPk);
+        return ResponseEntity.ok(message);
     }
 
     @Operation(summary = "게시글 좋아요 또는 싫어요 등록 및 변경")
