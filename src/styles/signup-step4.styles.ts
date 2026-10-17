@@ -1,0 +1,91 @@
+import { StyleSheet } from "react-native";
+
+const styles = StyleSheet.create({
+  required: {
+    color: "#333333",
+  },
+  profileSection: {
+    alignItems: "center",
+    marginTop: 0,
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 94,
+    height: 94,
+    borderWidth: 1,
+    borderColor: "#DADADA",
+    borderRadius: 47,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    overflow: "hidden",
+  },
+  avatarHead: {
+    position: "absolute",
+    top: 20,
+    width: 27,
+    height: 27,
+    borderWidth: 1.5,
+    borderColor: "#999999",
+    borderRadius: 14,
+  },
+  avatarBody: {
+    position: "absolute",
+    bottom: 13,
+    width: 49,
+    height: 25,
+    borderWidth: 1.5,
+    borderColor: "#999999",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    borderBottomWidth: 0,
+  },
+  cameraMark: {
+    position: "absolute",
+    right: 2,
+    bottom: 1,
+    width: 22,
+    height: 22,
+    overflow: "hidden",
+    borderRadius: 11,
+    backgroundColor: "#51478C",
+    color: "#FFFFFF",
+    textAlign: "center",
+    textAlignVertical: "center",
+    fontSize: 17,
+    lineHeight: 22,
+  },
+  nicknameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  nicknameInput: {
+    flex: 1,
+    minWidth: 0,
+  },
+  duplicateButton: {
+    width: 78,
+    height: 43,
+    borderWidth: 1,
+    borderColor: "#DAD5EE",
+    borderRadius: 9,
+    backgroundColor: "#E8E3F7",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  duplicateButtonText: {
+    fontFamily: "Arial",
+    fontSize: 11,
+    color: "#30285F",
+  },
+  photoHint: {
+    marginTop: 10,
+    fontFamily: "Arial",
+    fontSize: 10,
+    lineHeight: 16,
+    color: "#999999",
+  },
+});
+
+export default styles;
