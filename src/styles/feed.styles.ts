@@ -7,6 +7,7 @@ export const COLORS = {
   border: "#EEEEEE",
   placeholder: "#F2F2F2",
   purple: "#8B5CF6",
+  subpurple: "#4d458b"
 };
 
 export const styles = StyleSheet.create({

@@ -1,3 +1,4 @@
+
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
 import {
@@ -14,21 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import BellIcon from "../../assets/icons/bell.svg";
 import PlusIcon from "../../assets/icons/plusicon.svg";
 
-import HomeActiveIcon from "../../assets/icons/nav-home-active.svg";
-import HomeIcon from "../../assets/icons/nav-home.svg";
-
-import SearchActiveIcon from "../../assets/icons/nav-search-active.svg";
-import SearchIcon from "../../assets/icons/nav-search.svg";
-
-import ChatActiveIcon from "../../assets/icons/nav-chat-active.svg";
-import ChatIcon from "../../assets/icons/nav-chat.svg";
-
-import MyPageActiveIcon from "../../assets/icons/nav-mypage-active.svg";
-import MyPageIcon from "../../assets/icons/nav-mypage.svg";
-
 import { styles } from "../styles/feed.styles";
-
-type TabKey = "home" | "search" | "chat" | "mypage";
 
 type FeedPost = {
   id: string;
@@ -113,72 +100,14 @@ const FEED_POSTS: FeedPost[] = [
   },
 ];
 
-const TAB_LABELS: Record<TabKey, string> = {
-  home: "홈",
-  search: "검색",
-  chat: "채팅",
-  mypage: "마이페이지",
-};
-
-const TAB_ICONS = {
-  home: {
-    inactive: HomeIcon,
-    active: HomeActiveIcon,
-  },
-  search: {
-    inactive: SearchIcon,
-    active: SearchActiveIcon,
-  },
-  chat: {
-    inactive: ChatIcon,
-    active: ChatActiveIcon,
-  },
-  mypage: {
-    inactive: MyPageIcon,
-    active: MyPageActiveIcon,
-  },
-};
-
 export default function FeedScreen() {
-  const [activeTab, setActiveTab] = useState<TabKey>("home");
-
-  const handleTabPress = (tab: TabKey) => {
-    setActiveTab(tab);
-
-    if (tab === "home") {
-      return;
-    }
-
-    Alert.alert(
-      TAB_LABELS[tab],
-      `${TAB_LABELS[tab]} 화면은 아직 준비 중이에요.`,
-    );
-  };
-
-  const renderTab = (tab: TabKey) => {
-    const isActive = activeTab === tab;
-    const Icon = isActive ? TAB_ICONS[tab].active : TAB_ICONS[tab].inactive;
-
-    return (
-      <Pressable
-        key={tab}
-        style={styles.navItem}
-        onPress={() => handleTabPress(tab)}
-        accessibilityRole="button"
-        accessibilityLabel={TAB_LABELS[tab]}
-        accessibilityState={{ selected: isActive }}
-      >
-        <Icon width={36} height={36} />
-      </Pressable>
-    );
-  };
+  const [refreshKey] = useState(0);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.appFrame}>
-        {/* 상단 헤더 */}
         <View style={styles.header}>
           <View style={styles.logoArea}>
             <Image
@@ -211,8 +140,8 @@ export default function FeedScreen() {
           </View>
         </View>
 
-        {/* 피드: 이 영역만 스크롤 */}
         <ScrollView
+          key={refreshKey}
           style={styles.feedScroll}
           contentContainerStyle={styles.feedContent}
           showsVerticalScrollIndicator={false}
@@ -224,14 +153,12 @@ export default function FeedScreen() {
                 style={styles.postCard}
                 onPress={() => Alert.alert("스타일리스트", post.stylistName)}
               >
-                {/* 메인 사진 */}
                 <Image
                   source={{ uri: post.image }}
                   style={styles.postImage}
                   resizeMode="cover"
                 />
 
-                {/* 사진 하단 그라데이션 */}
                 <LinearGradient
                   colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.2)", "rgba(0,0,0,1)"]}
                   locations={[0, 0.4, 1]}
@@ -239,7 +166,6 @@ export default function FeedScreen() {
                   pointerEvents="none"
                 />
 
-                {/* 프로필 사진 + 이름 + 스타일 */}
                 <View style={styles.stylistInfo} pointerEvents="none">
                   <Image
                     source={{ uri: post.profileImage }}
@@ -261,11 +187,6 @@ export default function FeedScreen() {
             ))}
           </View>
         </ScrollView>
-
-        {/* 고정 하단 네비게이션 */}
-        <View style={styles.bottomNav}>
-          {(["home", "search", "chat", "mypage"] as TabKey[]).map(renderTab)}
-        </View>
       </View>
     </SafeAreaView>
   );
