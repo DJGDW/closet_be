@@ -12,6 +12,9 @@ import com.styling.backend.domain.user.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -50,9 +53,11 @@ public class PostController {
 
     @Operation(summary = "추천 게시글 목록 조회")
     @GetMapping("/recommended")
-    public ResponseEntity<List<PostRecommendationResponseDto>>
-    getRecommendedPosts() {
-
+    public ResponseEntity<Page<PostRecommendationResponseDto>>
+    getRecommendedPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
@@ -62,13 +67,20 @@ public class PostController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
+        if (page < 0 || size < 1 || size > 50) {
+            return ResponseEntity.badRequest().build();
+        }
+
         User user = userRepository.findByUserId(userId)
                 .orElseThrow(() ->
                         new IllegalArgumentException("사용자를 찾을 수 없습니다."));
 
-        List<PostRecommendationResponseDto> posts =
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<PostRecommendationResponseDto> posts =
                 postRecommendationService.getRecommendedPosts(
-                        user.getUserPk()
+                        user.getUserPk(),
+                        pageable
                 );
 
         return ResponseEntity.ok(posts);
