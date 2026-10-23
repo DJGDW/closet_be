@@ -10,4 +10,6 @@ public interface UserBodyRatioRepository
         extends JpaRepository<UserBodyRatio, Long> {
 
     Optional<UserBodyRatio> findByUserBody(UserBody userBody);
+
+    Optional<UserBodyRatio> findByUserBody_User_UserPk(Long userPk);
 }
