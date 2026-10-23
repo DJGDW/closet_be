@@ -1,7 +1,9 @@
 package com.styling.backend.domain.user.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -95,5 +97,29 @@ public class UserSignupRequestDto {
         private Integer thigh;
         private Integer calf;
         private Integer leg;
+
+        @AssertTrue(message = "신체정보는 전부 입력하거나 전부 비워야 합니다.")
+        @JsonIgnore
+        public boolean isOptionalBodyInfoValid() {
+            boolean allNull =
+                    chestSize == null &&
+                    waistSize == null &&
+                    shoulderWidth == null &&
+                    hips == null &&
+                    thigh == null &&
+                    calf == null &&
+                    leg == null;
+
+            boolean allFilled =
+                    chestSize != null &&
+                    waistSize != null &&
+                    shoulderWidth != null &&
+                    hips != null &&
+                    thigh != null &&
+                    calf != null &&
+                    leg != null;
+
+            return allNull || allFilled;
+        }
     }
 }

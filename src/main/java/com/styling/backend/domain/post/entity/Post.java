@@ -1,5 +1,7 @@
-    package com.styling.backend.domain.post.entity;
+package com.styling.backend.domain.post.entity;
 
+import com.styling.backend.domain.styletype.entity.StyleType;
+import com.styling.backend.domain.ratio.entity.RatioType;
 import com.styling.backend.domain.stylist.entity.Stylist;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -31,14 +33,33 @@ public class Post {
     @JoinColumn(name = "stylist_pk", nullable = false)
     private Stylist stylist;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "type_pk", nullable = false)
+    private StyleType styleType;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "ratio_pk", nullable = false)
+    private RatioType ratioType;
+
     @Column(name = "content", length = 255)
     private String content;
 
-    public Post(Stylist stylist, String content) {
+    public Post(
+            Stylist stylist,
+            String content,
+            StyleType styleType,
+            RatioType ratioType
+    ) {
         this.stylist = stylist;
         this.content = content;
+        this.styleType = styleType;
+        this.ratioType = ratioType;
         this.viewCount = 0;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
+    }
+
+    public void increaseViewCount() {
+    this.viewCount = (this.viewCount == null ? 0 : this.viewCount) + 1;
     }
 }

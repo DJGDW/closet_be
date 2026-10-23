@@ -6,5 +6,10 @@ import java.util.List;
 
 public interface PostService {
 
-    void createPost(MultipartFile image, List<String> hashtags);
+    void createPost(
+            MultipartFile image,
+            Long typePk,
+            Long ratioPk,
+            List<String> hashtags
+    );
 }
