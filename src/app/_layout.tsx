@@ -1,4 +1,3 @@
-
 import { Stack, usePathname } from "expo-router";
 import { View } from "react-native";
 
@@ -30,6 +29,9 @@ export default function RootLayout() {
             <Stack.Screen name="search" />
             <Stack.Screen name="chat" />
             <Stack.Screen name="mypage" />
+            <Stack.Screen name="stylist/[id]" />
+            <Stack.Screen name="stylist/[id]/portfolio" />
+            <Stack.Screen name="stylist/[id]/payment" />
           </Stack>
 
           {showBottomNavigation && <BottomNavigation />}

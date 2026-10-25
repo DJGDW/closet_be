@@ -18,16 +18,19 @@ export default function LoginScreen() {
     setMessage("로그인 중...");
 
     try {
-      const response = await fetch("http://192.168.0.5:8080/user/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const response = await fetch(
+        "http://192.168.219.107:8082:8080/user/login",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            userId: userId.trim(),
+            userPw: password,
+          }),
         },
-        body: JSON.stringify({
-          userId: userId.trim(),
-          userPw: password,
-        }),
-      });
+      );
 
       const data = await response.json();
 

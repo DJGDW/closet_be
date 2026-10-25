@@ -1,4 +1,3 @@
-
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
@@ -16,6 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import styles from "../styles/search.styles";
 import { COLORS } from "../styles/feed.styles";
+import { useRouter } from "expo-router";
+import { MOCK_STYLISTS } from "../data/stylists";
 
 const CATEGORIES = [
   "캐주얼",
@@ -34,91 +35,8 @@ const CATEGORIES = [
 
 type SortType = "최신순" | "좋아요 많은 순" | "후기 많은 순";
 
-type Stylist = {
-  id: string;
-  name: string;
-  categories: string[];
-  image: string;
-  likes: number;
-  reviews: number;
-};
-
-const MOCK_STYLISTS: Stylist[] = [
-  {
-    id: "1",
-    name: "gar_dxx",
-    categories: ["미니멀", "캐주얼", "모던"],
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600",
-    likes: 125,
-    reviews: 32,
-  },
-  {
-    id: "2",
-    name: "jaewon",
-    categories: ["스트릿", "캐주얼"],
-    image:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600",
-    likes: 240,
-    reviews: 56,
-  },
-  {
-    id: "3",
-    name: "seoyeon_96",
-    categories: ["페미닌", "미니멀"],
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=600",
-    likes: 310,
-    reviews: 81,
-  },
-  {
-    id: "4",
-    name: "jun50_park",
-    categories: ["댄디", "모던", "포멀"],
-    image:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600",
-    likes: 180,
-    reviews: 42,
-  },
-  {
-    id: "5",
-    name: "yujinchoi",
-    categories: ["빈티지", "캐주얼"],
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600",
-    likes: 98,
-    reviews: 21,
-  },
-  {
-    id: "6",
-    name: "정현우",
-    categories: ["스트릿", "고프코어"],
-    image:
-      "https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?w=600",
-    likes: 420,
-    reviews: 103,
-  },
-  {
-    id: "7",
-    name: "min_daily",
-    categories: ["미니멀", "모던"],
-    image:
-      "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=600",
-    likes: 155,
-    reviews: 37,
-  },
-  {
-    id: "8",
-    name: "street_h",
-    categories: ["스트릿", "Y2K"],
-    image:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=600",
-    likes: 275,
-    reviews: 68,
-  },
-];
-
 export default function SearchScreen() {
+  const router = useRouter();
   const [keyword, setKeyword] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [filterVisible, setFilterVisible] = useState(false);
@@ -128,14 +46,19 @@ export default function SearchScreen() {
 
   const filteredStylists = useMemo(() => {
     let result = MOCK_STYLISTS.filter((stylist) => {
-      const matchesKeyword = stylist.name
-        .toLowerCase()
-        .includes(keyword.trim().toLowerCase());
+      const searchTerm = keyword.trim().toLowerCase();
+
+      const matchesKeyword =
+        searchTerm.length === 0 ||
+        stylist.name.toLowerCase().includes(searchTerm) ||
+        stylist.categories.some((category) =>
+          category.toLowerCase().includes(searchTerm),
+        );
 
       const matchesCategories =
         selectedCategories.length === 0 ||
         selectedCategories.some((category) =>
-          stylist.categories.includes(category)
+          stylist.categories.includes(category),
         );
 
       return matchesKeyword && matchesCategories;
@@ -160,7 +83,7 @@ export default function SearchScreen() {
     setSelectedCategories((current) =>
       current.includes(category)
         ? current.filter((item) => item !== category)
-        : [...current, category]
+        : [...current, category],
     );
   };
 
@@ -168,7 +91,7 @@ export default function SearchScreen() {
     setDraftCategories((current) =>
       current.includes(category)
         ? current.filter((item) => item !== category)
-        : [...current, category]
+        : [...current, category],
     );
   };
 
@@ -185,9 +108,7 @@ export default function SearchScreen() {
 
     const matchesCategories =
       draftCategories.length === 0 ||
-      draftCategories.some((category) =>
-        stylist.categories.includes(category)
-      );
+      draftCategories.some((category) => stylist.categories.includes(category));
 
     return matchesKeyword && matchesCategories;
   }).length;
@@ -202,22 +123,10 @@ export default function SearchScreen() {
 
         <View style={styles.header}>
           <Text style={styles.headerTitle}>탐색</Text>
-
-          <Pressable onPress={openFilter} style={styles.headerIcon}>
-            <Ionicons
-              name="options-outline"
-              size={23}
-              color={COLORS.text}
-            />
-          </Pressable>
         </View>
 
         <View style={styles.searchBox}>
-          <Ionicons
-            name="search-outline"
-            size={20}
-            color={COLORS.subText}
-          />
+          <Ionicons name="search-outline" size={20} color={COLORS.subText} />
 
           <TextInput
             value={keyword}
@@ -231,34 +140,35 @@ export default function SearchScreen() {
 
           {keyword.length > 0 && (
             <Pressable onPress={() => setKeyword("")}>
-              <Ionicons
-                name="close-circle"
-                size={19}
-                color={COLORS.subText}
-              />
+              <Ionicons name="close-circle" size={19} color={COLORS.subText} />
             </Pressable>
           )}
         </View>
 
-        <View style={styles.categoryArea}>
+        <View
+          style={[
+            styles.categoryArea,
+            { flexDirection: "row", alignItems: "center" },
+          ]}
+        >
+          {/* 왼쪽: 수평 스크롤 영역 */}
           <ScrollView
             horizontal
+            style={{ flex: 1 }}
+            contentContainerStyle={[styles.categoryList, { paddingRight: 8 }]}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryList}
           >
             <Pressable
               onPress={() => setSelectedCategories([])}
               style={[
                 styles.categoryChip,
-                selectedCategories.length === 0 &&
-                  styles.categoryChipActive,
+                selectedCategories.length === 0 && styles.categoryChipActive,
               ]}
             >
               <Text
                 style={[
                   styles.categoryText,
-                  selectedCategories.length === 0 &&
-                    styles.categoryTextActive,
+                  selectedCategories.length === 0 && styles.categoryTextActive,
                 ]}
               >
                 전체
@@ -288,29 +198,102 @@ export default function SearchScreen() {
                 </Pressable>
               );
             })}
-
-            <Pressable style={styles.filterChip} onPress={openFilter}>
-              <Ionicons
-                name="options-outline"
-                size={15}
-                color={COLORS.text}
-              />
-              <Text style={styles.filterChipText}>필터</Text>
-            </Pressable>
           </ScrollView>
+
+          {/* 오른쪽: 고정 필터 버튼 */}
+          <Pressable
+            style={[
+              styles.filterChip,
+              {
+                marginLeft: 6,
+                flexShrink: 0,
+                alignSelf: "center",
+              },
+            ]}
+            onPress={openFilter}
+            accessibilityRole="button"
+            accessibilityLabel="필터 열기"
+          >
+            <Ionicons name="options-outline" size={15} color={COLORS.text} />
+            <Text style={styles.filterChipText}>필터</Text>
+          </Pressable>
         </View>
 
-        <View style={styles.resultHeader}>
-          <Text style={styles.resultTitle}>최신 포트폴리오</Text>
+        {/* 검색어와 관련된 스타일리스트 프로필 */}
+        {keyword.trim().length > 0 && (
+          <View style={{ marginTop: 8, marginBottom: 0 }}>
+            <Text
+              style={[styles.resultTitle, { marginBottom: 6, marginLeft: 12 }]}
+            >
+              스타일리스트 프로필
+            </Text>
 
-          <Pressable style={styles.sortButton} onPress={openFilter}>
-            <Text style={styles.sortText}>{sortType}</Text>
-            <Ionicons
-              name="chevron-down"
-              size={13}
-              color={COLORS.subText}
-            />
-          </Pressable>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                paddingHorizontal: 12,
+                gap: 14,
+              }}
+            >
+              {filteredStylists.map((stylist) => (
+                <Pressable
+                  key={stylist.id}
+                  style={{ width: 68, alignItems: "center" }}
+                  onPress={() => {
+                    router.push(`/stylist/${stylist.id}`);
+                  }}
+                >
+                  <Image
+                    source={{ uri: stylist.image }}
+                    style={{
+                      width: 58,
+                      height: 58,
+                      borderRadius: 29,
+                      backgroundColor: "#E7E5EC",
+                    }}
+                  />
+
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      color: COLORS.text,
+                      textAlign: "center",
+                      width: 68,
+                    }}
+                  >
+                    {stylist.name}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            {filteredStylists.length === 0 && (
+              <Text
+                style={{
+                  marginHorizontal: 12,
+                  fontSize: 12,
+                  color: COLORS.subText,
+                }}
+              >
+                관련 스타일리스트가 없습니다.
+              </Text>
+            )}
+          </View>
+        )}
+
+        <View
+          style={[
+            styles.resultHeader,
+            {
+              marginTop: keyword.trim().length > 0 ? 4 : 0,
+              marginBottom: 0,
+            },
+          ]}
+        >
+          <Text style={styles.resultTitle}>관련 포트폴리오</Text>
         </View>
 
         <FlatList
@@ -321,19 +304,18 @@ export default function SearchScreen() {
           columnWrapperStyle={styles.gridRow}
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
-            <Pressable style={styles.stylistCard}>
-              <Image
-                source={{ uri: item.image }}
-                style={styles.stylistImage}
-              />
+            <Pressable
+              style={styles.stylistCard}
+              onPress={() => {
+                router.push(`/stylist/${item.id}`);
+              }}
+            >
+              <Image source={{ uri: item.image }} style={styles.stylistImage} />
 
               <View style={styles.imageShade} />
 
               <View style={styles.stylistInfo}>
-                <Image
-                  source={{ uri: item.image }}
-                  style={styles.avatar}
-                />
+                <Image source={{ uri: item.image }} style={styles.avatar} />
 
                 <View style={styles.stylistTextArea}>
                   <Text style={styles.stylistName} numberOfLines={1}>
@@ -398,11 +380,7 @@ export default function SearchScreen() {
                 <Text style={styles.sheetTitle}>필터</Text>
 
                 <Pressable onPress={() => setFilterVisible(false)}>
-                  <Ionicons
-                    name="close"
-                    size={24}
-                    color={COLORS.text}
-                  />
+                  <Ionicons name="close" size={24} color={COLORS.text} />
                 </Pressable>
               </View>
 
@@ -443,11 +421,7 @@ export default function SearchScreen() {
                 <Text style={styles.sectionTitle}>정렬 기준</Text>
 
                 {(
-                  [
-                    "최신순",
-                    "좋아요 많은 순",
-                    "후기 많은 순",
-                  ] as SortType[]
+                  ["최신순", "좋아요 많은 순", "후기 많은 순"] as SortType[]
                 ).map((option) => {
                   const active = draftSortType === option;
 
@@ -478,10 +452,7 @@ export default function SearchScreen() {
                   <Text style={styles.clearButtonText}>초기화</Text>
                 </Pressable>
 
-                <Pressable
-                  style={styles.applyButton}
-                  onPress={applyFilter}
-                >
+                <Pressable style={styles.applyButton} onPress={applyFilter}>
                   <Text style={styles.applyButtonText}>
                     필터 적용 ({modalPreviewCount})
                   </Text>

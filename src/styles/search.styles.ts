@@ -1,4 +1,3 @@
-
 import { StyleSheet } from "react-native";
 import { COLORS } from "./feed.styles";
 
@@ -97,9 +96,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   resultHeader: {
-    height: 42,
+    minHeight: 30,
     paddingHorizontal: 20,
-    marginTop: 5,
+    marginTop: 0,
+    marginBottom: 6,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   },
   gridContent: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 4,
     paddingBottom: 24,
   },
   gridRow: {
