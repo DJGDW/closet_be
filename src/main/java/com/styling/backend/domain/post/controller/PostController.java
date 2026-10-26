@@ -1,8 +1,10 @@
 package com.styling.backend.domain.post.controller;
 
+import com.styling.backend.domain.post.dto.PostDetailResponseDto;
 import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 import com.styling.backend.domain.post.dto.PostReactionRequestDto;
 import com.styling.backend.domain.post.dto.PostRecommendationResponseDto;
+import com.styling.backend.domain.post.service.PostDetailService;
 import com.styling.backend.domain.post.service.PostReactionService;
 import com.styling.backend.domain.post.service.PostRecommendationService;
 import com.styling.backend.domain.post.service.PostService;
@@ -33,6 +35,7 @@ public class PostController {
     private final PostReactionService postReactionService;
     private final PostViewService postViewService;
     private final PostRecommendationService postRecommendationService;
+    private final PostDetailService postDetailService;
     private final UserRepository userRepository;
 
     @Operation(summary = "게시글 작성")
@@ -84,6 +87,16 @@ public class PostController {
                 );
 
         return ResponseEntity.ok(posts);
+    }
+
+    @Operation(summary = "게시글 상세 조회")
+    @GetMapping("/{postPk}")
+    public ResponseEntity<PostDetailResponseDto> getPostDetail(
+            @PathVariable Long postPk
+    ) {
+        return ResponseEntity.ok(
+                postDetailService.getPostDetail(postPk)
+        );
     }
 
     @Operation(summary = "게시글 조회 기록 등록 및 조회수 증가")

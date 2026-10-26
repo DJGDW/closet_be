@@ -1,3 +1,4 @@
+
 plugins {
     id 'java'
     id 'org.springframework.boot' version '4.1.1'
@@ -22,6 +23,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+    implementation 'org.springframework.boot:spring-boot-starter-jackson'
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
 
     // Cloudinary 이미지 업로드
@@ -40,7 +42,7 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
 
-	implementation 'io.github.cdimascio:dotenv-java:3.2.0'
+    implementation 'io.github.cdimascio:dotenv-java:3.2.0'
 
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'

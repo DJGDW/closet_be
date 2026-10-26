@@ -18,6 +18,13 @@ public enum ErrorCode {
     DUPLICATE_PLAN(HttpStatus.BAD_REQUEST),
     PLAN_NOT_FOUND(HttpStatus.BAD_REQUEST),
 
+    CHAT_ROOM_NOT_FOUND(HttpStatus.NOT_FOUND),
+    STYLIST_NOT_FOUND(HttpStatus.NOT_FOUND),
+
+    ORDER_NOT_FOUND(HttpStatus.NOT_FOUND),
+    PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST),
+    TOSS_PAYMENT_FAILED(HttpStatus.BAD_GATEWAY),
+
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;
