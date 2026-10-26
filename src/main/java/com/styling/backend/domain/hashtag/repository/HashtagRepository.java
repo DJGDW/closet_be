@@ -1,4 +1,4 @@
-package com.styling.backend.domain.post.repository;
+package com.styling.backend.domain.hashtag.repository;
 
 import com.styling.backend.domain.post.entity.Hashtag;
 import org.springframework.data.jpa.repository.JpaRepository;
