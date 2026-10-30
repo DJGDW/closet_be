@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { Image, Pressable, Text, TextInput, View } from "react-native";
 import styles from "../styles/login.styles";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function LoginScreen() {
   const [userId, setUserId] = useState("");
@@ -18,19 +19,16 @@ export default function LoginScreen() {
     setMessage("로그인 중...");
 
     try {
-      const response = await fetch(
-        "http://192.168.219.107:8082:8080/user/login",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: userId.trim(),
-            userPw: password,
-          }),
+      const response = await fetch("http://192.168.219.107:8080/user/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          userId: userId.trim(),
+          userPw: password,
+        }),
+      });
 
       const data = await response.json();
 
@@ -38,6 +36,7 @@ export default function LoginScreen() {
         setMessage(data.message ?? "아이디 또는 비밀번호를 확인해주세요.");
         return;
       }
+      await AsyncStorage.setItem("accessToken", data.accessToken);
 
       if (!data.accessToken) {
         setMessage("로그인 응답에 토큰이 없습니다.");

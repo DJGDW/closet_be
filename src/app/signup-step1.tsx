@@ -178,7 +178,7 @@ export default function SignupStep1() {
     setIsCheckingId(true);
 
     try {
-      const url = `http://192.168.0.5:8080/user/check-id?userId=${encodeURIComponent(trimmedUserId)}`;
+      const url = `http://192.168.219.107:8080/user/check-id?userId=${encodeURIComponent(trimmedUserId)}`;
 
       const response = await fetch(url);
 
@@ -187,6 +187,7 @@ export default function SignupStep1() {
       }
 
       const available: unknown = await response.json();
+      console.log("아이디 중복확인 응답:", available);
 
       if (typeof available !== "boolean") {
         throw new Error("서버 응답 형식이 올바르지 않습니다.");
