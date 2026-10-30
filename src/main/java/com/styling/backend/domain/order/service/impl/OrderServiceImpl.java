@@ -5,6 +5,7 @@ import com.styling.backend.domain.chat.entity.ChatRoom;
 import com.styling.backend.domain.chat.repository.ChatRoomRepository;
 import com.styling.backend.domain.order.dto.OrderCreateRequestDto;
 import com.styling.backend.domain.order.dto.OrderCreateResponseDto;
+import com.styling.backend.domain.order.dto.OrderListResponseDto;
 import com.styling.backend.domain.order.dto.PaymentCancelRequestDto;
 import com.styling.backend.domain.order.dto.PaymentCancelResponseDto;
 import com.styling.backend.domain.order.dto.PaymentConfirmRequestDto;
@@ -27,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -176,6 +178,49 @@ public class OrderServiceImpl implements OrderService {
                 order.getPurchaseStatus(),
                 order.getCancelledAt()
         );
+    }
+
+    @Override
+    @Transactional
+    public void completeOrder(Long orderPk) {
+        User user = getLoginUser();
+
+        Order order = orderRepository
+                .findByOrderPkAndUser_UserPk(
+                        orderPk,
+                        user.getUserPk()
+                )
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
+                || !Byte.valueOf(Order.PROCESS_IN_PROGRESS).equals(order.getProcessStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        order.completeService();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderListResponseDto> getOrderList() {
+        User user = getLoginUser();
+
+        return orderRepository
+                .findAllByUser_UserPkOrderByOrderPkDesc(user.getUserPk())
+                .stream()
+                .map(order -> new OrderListResponseDto(
+                        order.getOrderPk(),
+                        order.getStylistPlan().getPlan().getPlanTier(),
+                        order.getStylist().getUser().getUserName(),
+                        order.getStylist().getUser().getNickname(),
+                        order.getStylist().getUser().getProfilePic(),
+                        order.getPrice(),
+                        order.getPurchaseStatus(),
+                        order.getProcessStatus(),
+                        order.getOrderStarted(),
+                        order.getOrderFinished()
+                ))
+                .toList();
     }
 
     private User getLoginUser() {

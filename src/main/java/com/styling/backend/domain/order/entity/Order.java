@@ -21,6 +21,8 @@ public class Order {
     public static final byte PURCHASE_CANCELLED = 2;
 
     public static final byte PROCESS_PENDING = 0;
+    public static final byte PROCESS_IN_PROGRESS = 1;
+    public static final byte PROCESS_COMPLETED = 2;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -85,7 +87,6 @@ public class Order {
         this.price = price;
         this.purchaseStatus = PURCHASE_PENDING;
         this.processStatus = PROCESS_PENDING;
-        this.orderStarted = Instant.now();
     }
 
     public void completePayment(
@@ -97,6 +98,13 @@ public class Order {
         this.paymentMethod = paymentMethod;
         this.approvedAt = approvedAt;
         this.purchaseStatus = PURCHASE_COMPLETED;
+        this.processStatus = PROCESS_IN_PROGRESS;
+        this.orderStarted = approvedAt;
+    }
+
+    public void completeService() {
+        this.processStatus = PROCESS_COMPLETED;
+        this.orderFinished = Instant.now();
     }
 
     public void cancelPayment(String cancelReason) {
