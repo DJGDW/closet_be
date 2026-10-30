@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -64,4 +65,6 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             @Param("roomPk") Long roomPk,
             @Param("userId") String userId
     );
+
+    List<ChatRoom> findByDeleteAfterLessThanEqual(Instant now);
 }
