@@ -1,13 +1,16 @@
 package com.styling.backend.domain.stylist.service;
 
+import com.styling.backend.domain.follow.repository.FollowRepository;
 import com.styling.backend.domain.location.entity.Location;
 import com.styling.backend.domain.location.repository.LocationRepository;
 import com.styling.backend.domain.plan.entity.Plan;
 import com.styling.backend.domain.plan.repository.PlanRepository;
+import com.styling.backend.domain.post.repository.PostRepository;
 import com.styling.backend.domain.styletype.entity.StyleType;
 import com.styling.backend.domain.styletype.repository.StyleTypeRepository;
 import com.styling.backend.domain.stylist.dto.StylistRegisterRequestDto;
 import com.styling.backend.domain.stylist.dto.response.StylistCheckResponseDto;
+import com.styling.backend.domain.stylist.dto.response.StylistDetailResponseDto;
 import com.styling.backend.domain.stylist.entity.Stylist;
 import com.styling.backend.domain.stylist.entity.StylistPlan;
 import com.styling.backend.domain.stylist.entity.StylistStyleType;
@@ -41,6 +44,8 @@ public class StylistService {
     private final StylistStyleTypeRepository stylistStyleTypeRepository;
     private final StylistPlanRepository stylistPlanRepository;
     private final StylistMapper stylistMapper;
+    private final PostRepository postRepository;
+    private final FollowRepository followRepository;
 
     @Transactional
     public void register(StylistRegisterRequestDto request) {
@@ -140,5 +145,33 @@ public class StylistService {
                 stylistRepository.existsByUser_UserPk(user.getUserPk());
 
         return new StylistCheckResponseDto(isStylist);
+    }
+
+    @Transactional(readOnly = true)
+    public StylistDetailResponseDto getStylistDetail(Long stylistPk) {
+
+        Stylist stylist = stylistRepository.findById(stylistPk)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.STYLIST_NOT_FOUND));
+
+        List<StylistStyleType> stylistStyleTypes =
+                stylistStyleTypeRepository.findAllByStylist_StylistPk(stylistPk);
+
+        List<StylistPlan> stylistPlans =
+                stylistPlanRepository.findAllByStylist_StylistPk(stylistPk);
+
+        Long postCount =
+                postRepository.countByStylist_StylistPk(stylistPk);
+
+        Long followerCount =
+                followRepository.countByStylist_StylistPk(stylistPk);
+
+        return stylistMapper.toDetailResponseDto(
+                stylist,
+                stylistStyleTypes,
+                stylistPlans,
+                postCount,
+                followerCount
+        );
     }
 }

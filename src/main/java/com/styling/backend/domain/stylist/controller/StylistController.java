@@ -2,6 +2,7 @@ package com.styling.backend.domain.stylist.controller;
 
 import com.styling.backend.domain.stylist.dto.StylistRegisterRequestDto;
 import com.styling.backend.domain.stylist.dto.response.StylistCheckResponseDto;
+import com.styling.backend.domain.stylist.dto.response.StylistDetailResponseDto;
 import com.styling.backend.domain.stylist.service.StylistService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -30,5 +31,15 @@ public class StylistController {
     @GetMapping("/check")
     public ResponseEntity<StylistCheckResponseDto> checkStylist() {
         return ResponseEntity.ok(stylistService.checkStylist());
+    }
+
+    @Operation(summary = "스타일리스트 상세 조회")
+    @GetMapping("/{stylistPk}")
+    public ResponseEntity<StylistDetailResponseDto> getStylistDetail(
+            @PathVariable Long stylistPk
+    ) {
+        return ResponseEntity.ok(
+                stylistService.getStylistDetail(stylistPk)
+        );
     }
 }

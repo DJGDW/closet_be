@@ -59,4 +59,6 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             @Param("typePk") Long typePk,
             Pageable pageable
     );
+
+    Long countByStylist_StylistPk(Long stylistPk);
 }
