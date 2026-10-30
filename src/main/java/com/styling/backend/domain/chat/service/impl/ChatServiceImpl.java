@@ -2,7 +2,9 @@ package com.styling.backend.domain.chat.service.impl;
 
 import com.styling.backend.domain.chat.dto.ChatMessageResponseDto;
 import com.styling.backend.domain.chat.entity.ChatMessage;
+import com.styling.backend.domain.chat.entity.ChatMessageImage;
 import com.styling.backend.domain.chat.entity.ChatRoom;
+import com.styling.backend.domain.chat.repository.ChatMessageImageRepository;
 import com.styling.backend.domain.chat.repository.ChatMessageRepository;
 import com.styling.backend.domain.chat.repository.ChatRoomRepository;
 import com.styling.backend.domain.chat.service.ChatService;
@@ -12,11 +14,13 @@ import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.repository.UserRepository;
 import com.styling.backend.exception.BusinessException;
 import com.styling.backend.exception.ErrorCode;
+import com.styling.backend.global.image.ImageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -27,8 +31,10 @@ public class ChatServiceImpl implements ChatService {
 
     private final ChatRoomRepository chatRoomRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final ChatMessageImageRepository chatMessageImageRepository;
     private final UserRepository userRepository;
     private final StylistRepository stylistRepository;
+    private final ImageService imageService;
 
     @Override
     @Transactional
@@ -79,6 +85,54 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
+    @Transactional
+    public ChatMessage sendImageMessage(Long roomPk, List<MultipartFile> images) {
+        User user = getAuthenticatedUser();
+
+        ChatRoom chatRoom = chatRoomRepository.findById(roomPk)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        validateRoomParticipant(chatRoom, user);
+
+        if (chatRoom.getRoomStatus() != ChatRoom.STATUS_ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        if (images == null || images.isEmpty()
+                || images.stream().anyMatch(image ->
+                image == null || image.isEmpty())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        ChatMessage message = chatMessageRepository.save(
+                new ChatMessage(
+                        chatRoom,
+                        user,
+                        ChatMessage.TYPE_IMAGE,
+                        null
+                )
+        );
+
+        for (int i = 0; i < images.size(); i++) {
+            String imageUrl = imageService.uploadImage(
+                    images.get(i),
+                    "chat/" + roomPk
+            );
+
+            if (imageUrl == null) {
+                throw new IllegalStateException("채팅 이미지 업로드에 실패했습니다.");
+            }
+
+            chatMessageImageRepository.save(
+                    new ChatMessageImage(message, imageUrl, i)
+            );
+        }
+
+        return message;
+    }
+
+    @Override
     public List<ChatMessageResponseDto> getMessages(Long roomPk) {
         User user = getAuthenticatedUser();
 
@@ -93,7 +147,18 @@ public class ChatServiceImpl implements ChatService {
                         roomPk
                 )
                 .stream()
-                .map(ChatMessageResponseDto::new)
+                .map(message -> {
+                    List<String> imageUrls =
+                            chatMessageImageRepository
+                                    .findByChatMessage_MsgPkOrderByDisplayOrderAsc(
+                                            message.getMsgPk()
+                                    )
+                                    .stream()
+                                    .map(ChatMessageImage::getImageUrl)
+                                    .toList();
+
+                    return new ChatMessageResponseDto(message, imageUrls);
+                })
                 .toList();
     }
 

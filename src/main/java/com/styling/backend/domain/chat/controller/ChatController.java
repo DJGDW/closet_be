@@ -9,8 +9,10 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -43,6 +45,22 @@ public class ChatController {
                 roomPk,
                 requestDto.getMsgContent()
         );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(message.getMsgPk());
+    }
+
+    @Operation(summary = "채팅 이미지 메시지 전송")
+    @PostMapping(
+            value = "/{roomPk}/images",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<Long> sendImageMessage(
+            @PathVariable Long roomPk,
+            @RequestParam("images") List<MultipartFile> images
+    ) {
+        ChatMessage message = chatService.sendImageMessage(roomPk, images);
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
