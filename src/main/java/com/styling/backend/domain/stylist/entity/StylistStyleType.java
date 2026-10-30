@@ -29,4 +29,8 @@ public class StylistStyleType {
         this.styleType = styleType;
         this.stylist = stylist;
     }
+
+    public void updateStyleType(StyleType styleType) {
+        this.styleType = styleType;
+    }
 }

@@ -28,8 +28,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -124,6 +127,111 @@ public class StylistService {
             );
 
             stylistPlanRepository.save(stylistPlan);
+        }
+    }
+
+    @Transactional
+    public void updateMyInfo(StylistRegisterRequestDto request) {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof String userId)) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        Stylist stylist = stylistRepository.findByUser_UserId(userId)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.STYLIST_NOT_FOUND));
+
+        Location location = locationRepository.findById(request.getLocationPk())
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.LOCATION_NOT_FOUND));
+
+        List<Long> styleTypePks = request.getStyleTypePks();
+        Set<Long> uniqueStyleTypePks = new HashSet<>(styleTypePks);
+
+        if (uniqueStyleTypePks.size() != styleTypePks.size()) {
+            throw new BusinessException(ErrorCode.DUPLICATE_STYLE_TYPE);
+        }
+
+        List<StyleType> styleTypes =
+                styleTypeRepository.findAllById(styleTypePks);
+
+        if (styleTypes.size() != uniqueStyleTypePks.size()) {
+            throw new BusinessException(ErrorCode.STYLE_TYPE_NOT_FOUND);
+        }
+
+        List<StylistRegisterRequestDto.StylistPlanRequestDto> planRequests =
+                request.getPlans();
+
+        Set<Integer> uniquePlanPks = new HashSet<>();
+
+        for (StylistRegisterRequestDto.StylistPlanRequestDto planRequest
+                : planRequests) {
+            if (!uniquePlanPks.add(planRequest.getPlanPk())) {
+                throw new BusinessException(ErrorCode.DUPLICATE_PLAN);
+            }
+        }
+
+        List<Plan> plans = planRepository.findAllById(uniquePlanPks);
+
+        if (plans.size() != uniquePlanPks.size()) {
+            throw new BusinessException(ErrorCode.PLAN_NOT_FOUND);
+        }
+
+        List<StylistStyleType> existingStyleTypes =
+                stylistStyleTypeRepository.findAllByStylist_StylistPk(
+                        stylist.getStylistPk()
+                );
+
+        List<StylistPlan> existingPlans =
+                stylistPlanRepository.findAllByStylist_StylistPk(
+                        stylist.getStylistPk()
+                );
+
+        if (existingStyleTypes.size() != styleTypes.size()
+                || existingPlans.size() != planRequests.size()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        existingStyleTypes.sort(
+                Comparator.comparing(StylistStyleType::getStylistTypePk)
+        );
+
+        existingPlans.sort(
+                Comparator.comparing(StylistPlan::getStylistPlanPk)
+        );
+
+        Map<Long, StyleType> styleTypeMap = new HashMap<>();
+
+        for (StyleType styleType : styleTypes) {
+            styleTypeMap.put(styleType.getTypePk(), styleType);
+        }
+
+        Map<Integer, Plan> planMap = new HashMap<>();
+
+        for (Plan plan : plans) {
+            planMap.put(plan.getPlanPk(), plan);
+        }
+
+        stylist.updateInfo(request.getIntroduction(), location);
+
+        for (int i = 0; i < existingStyleTypes.size(); i++) {
+            StyleType styleType = styleTypeMap.get(styleTypePks.get(i));
+            existingStyleTypes.get(i).updateStyleType(styleType);
+        }
+
+        for (int i = 0; i < existingPlans.size(); i++) {
+            StylistRegisterRequestDto.StylistPlanRequestDto planRequest =
+                    planRequests.get(i);
+
+            Plan plan = planMap.get(planRequest.getPlanPk());
+
+            existingPlans.get(i).updatePlan(
+                    plan,
+                    planRequest.getPrice()
+            );
         }
     }
 

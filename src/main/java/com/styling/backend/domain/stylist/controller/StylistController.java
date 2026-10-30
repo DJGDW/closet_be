@@ -42,4 +42,13 @@ public class StylistController {
                 stylistService.getStylistDetail(stylistPk)
         );
     }
+
+    @Operation(summary = "현재 로그인한 스타일리스트 정보 수정")
+    @PutMapping("/me")
+    public ResponseEntity<Void> updateMyInfo(
+            @Valid @RequestBody StylistRegisterRequestDto request
+    ) {
+        stylistService.updateMyInfo(request);
+        return ResponseEntity.ok().build();
+    }
 }
