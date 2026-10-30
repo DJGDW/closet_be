@@ -39,4 +39,9 @@ public class Stylist {
         this.location = location;
         this.rating = BigDecimal.ZERO.setScale(1);
     }
+
+    public void updateInfo(String introduction, Location location) {
+        this.introduction = introduction;
+        this.location = location;
+    }
 }

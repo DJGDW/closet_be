@@ -33,4 +33,9 @@ public class StylistPlan {
         this.stylist = stylist;
         this.price = price;
     }
+
+    public void updatePlan(Plan plan, Integer price) {
+        this.plan = plan;
+        this.price = price;
+    }
 }
