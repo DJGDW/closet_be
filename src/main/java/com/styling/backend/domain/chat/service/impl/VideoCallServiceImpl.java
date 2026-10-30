@@ -35,7 +35,10 @@ public class VideoCallServiceImpl implements VideoCallService {
     @Transactional
     public VideoCall requestCall(Long roomPk) {
         User user = getAuthenticatedUser();
-        ChatRoom chatRoom = getChatRoom(roomPk);
+
+        ChatRoom chatRoom = chatRoomRepository.findByRoomPkWithLock(roomPk)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
         validateRoomParticipant(chatRoom, user);
         validateActiveRoom(chatRoom);

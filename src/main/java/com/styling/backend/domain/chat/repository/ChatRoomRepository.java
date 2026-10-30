@@ -1,7 +1,9 @@
 package com.styling.backend.domain.chat.repository;
 
 import com.styling.backend.domain.chat.entity.ChatRoom;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -27,6 +29,12 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     List<ChatRoom> findByStylist_User_UserPkAndRoomStatusOrderByCreatedAtDesc(
             Long userPk,
             Byte roomStatus
+    );
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT cr FROM ChatRoom cr WHERE cr.roomPk = :roomPk")
+    Optional<ChatRoom> findByRoomPkWithLock(
+            @Param("roomPk") Long roomPk
     );
 
     @Query("""
