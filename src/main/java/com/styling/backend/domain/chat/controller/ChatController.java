@@ -2,6 +2,7 @@ package com.styling.backend.domain.chat.controller;
 
 import com.styling.backend.domain.chat.dto.ChatMessageRequestDto;
 import com.styling.backend.domain.chat.dto.ChatMessageResponseDto;
+import com.styling.backend.domain.chat.dto.ChatRoomListResponseDto;
 import com.styling.backend.domain.chat.entity.ChatMessage;
 import com.styling.backend.domain.chat.entity.ChatRoom;
 import com.styling.backend.domain.chat.service.ChatService;
@@ -82,5 +83,17 @@ public class ChatController {
     ) {
         chatService.markMessagesAsRead(roomPk);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "활성 채팅방 목록 조회")
+    @GetMapping("/rooms")
+    public ResponseEntity<List<ChatRoomListResponseDto>> getActiveChatRooms() {
+        return ResponseEntity.ok(chatService.getActiveChatRooms());
+    }
+
+    @Operation(summary = "종료된 채팅방 목록 조회")
+    @GetMapping("/rooms/history")
+    public ResponseEntity<List<ChatRoomListResponseDto>> getClosedChatRooms() {
+        return ResponseEntity.ok(chatService.getClosedChatRooms());
     }
 }

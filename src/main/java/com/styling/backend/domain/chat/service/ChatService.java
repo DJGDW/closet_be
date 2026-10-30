@@ -1,6 +1,7 @@
 package com.styling.backend.domain.chat.service;
 
 import com.styling.backend.domain.chat.dto.ChatMessageResponseDto;
+import com.styling.backend.domain.chat.dto.ChatRoomListResponseDto;
 import com.styling.backend.domain.chat.entity.ChatMessage;
 import com.styling.backend.domain.chat.entity.ChatRoom;
 import org.springframework.web.multipart.MultipartFile;
@@ -18,4 +19,8 @@ public interface ChatService {
     List<ChatMessageResponseDto> getMessages(Long roomPk);
 
     void markMessagesAsRead(Long roomPk);
+
+    List<ChatRoomListResponseDto> getActiveChatRooms();
+
+    List<ChatRoomListResponseDto> getClosedChatRooms();
 }

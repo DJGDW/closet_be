@@ -1,6 +1,7 @@
 package com.styling.backend.domain.chat.service.impl;
 
 import com.styling.backend.domain.chat.dto.ChatMessageResponseDto;
+import com.styling.backend.domain.chat.dto.ChatRoomListResponseDto;
 import com.styling.backend.domain.chat.entity.ChatMessage;
 import com.styling.backend.domain.chat.entity.ChatMessageImage;
 import com.styling.backend.domain.chat.entity.ChatRoom;
@@ -22,7 +23,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -182,6 +189,91 @@ public class ChatServiceImpl implements ChatService {
                         );
 
         unreadMessages.forEach(ChatMessage::markAsRead);
+    }
+
+    @Override
+    public List<ChatRoomListResponseDto> getActiveChatRooms() {
+        User user = getAuthenticatedUser();
+
+        return getChatRoomsByStatus(user, ChatRoom.STATUS_ACTIVE);
+    }
+
+    @Override
+    public List<ChatRoomListResponseDto> getClosedChatRooms() {
+        User user = getAuthenticatedUser();
+
+        return getChatRoomsByStatus(user, ChatRoom.STATUS_CLOSED);
+    }
+
+    private List<ChatRoomListResponseDto> getChatRoomsByStatus(
+            User user,
+            Byte roomStatus
+    ) {
+        List<ChatRoom> userRooms =
+                chatRoomRepository.findByUser_UserPkAndRoomStatusOrderByCreatedAtDesc(
+                        user.getUserPk(),
+                        roomStatus
+                );
+
+        List<ChatRoom> stylistRooms =
+                chatRoomRepository.findByStylist_User_UserPkAndRoomStatusOrderByCreatedAtDesc(
+                        user.getUserPk(),
+                        roomStatus
+                );
+
+        Map<Long, ChatRoom> roomMap = Stream.concat(
+                        userRooms.stream(),
+                        stylistRooms.stream()
+                )
+                .collect(Collectors.toMap(
+                        ChatRoom::getRoomPk,
+                        Function.identity(),
+                        (existing, duplicate) -> existing
+                ));
+
+        return roomMap.values()
+                .stream()
+                .map(chatRoom -> {
+                    User opponent = getOpponent(chatRoom, user);
+
+                    ChatMessage lastMessage =
+                            chatMessageRepository
+                                    .findFirstByChatRoom_RoomPkAndDeletedAtIsNullOrderBySendAtDescMsgPkDesc(
+                                            chatRoom.getRoomPk()
+                                    )
+                                    .orElse(null);
+
+                    Long unreadCount =
+                            chatMessageRepository
+                                    .countByChatRoom_RoomPkAndSender_UserPkAndIsReadAndDeletedAtIsNull(
+                                            chatRoom.getRoomPk(),
+                                            opponent.getUserPk(),
+                                            (byte) 0
+                                    );
+
+                    return new ChatRoomListResponseDto(
+                            chatRoom,
+                            opponent,
+                            lastMessage,
+                            unreadCount
+                    );
+                })
+                .sorted(Comparator.comparing(
+                        (ChatRoomListResponseDto room) ->
+                                room.getLastMessageAt() != null
+                                        ? room.getLastMessageAt()
+                                        : Instant.MIN,
+                        Comparator.reverseOrder()
+                ))
+                .toList();
+    }
+
+    private User getOpponent(ChatRoom chatRoom, User user) {
+        if (chatRoom.getUser().getUserPk().equals(user.getUserPk())) {
+            return chatRoom.getStylist().getUser();
+        }
+
+        return chatRoom.getUser();
     }
 
     private Long getOpponentUserPk(ChatRoom chatRoom, User user) {
