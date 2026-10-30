@@ -13,4 +13,6 @@ public interface FollowRepository extends JpaRepository<Follow, Long> {
     Optional<Follow> findByUser_UserPkAndStylist_StylistPk(Long userPk, Long stylistPk);
 
     List<Follow> findAllByUser_UserPk(Long userPk);
+
+    Long countByStylist_StylistPk(Long stylistPk);
 }
