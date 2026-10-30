@@ -1,4 +1,3 @@
-
 plugins {
     id 'java'
     id 'org.springframework.boot' version '4.1.1'
@@ -24,6 +23,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-webmvc'
     implementation 'org.springframework.boot:spring-boot-starter-jackson'
+
+    // WebSocket 및 STOMP 실시간 통신
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
 
     // Cloudinary 이미지 업로드

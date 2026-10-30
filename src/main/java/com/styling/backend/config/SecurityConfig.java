@@ -30,7 +30,9 @@ public class SecurityConfig {
                                 "/user/check-id",
                                 "/user/check-nickname",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**"
+                                "/v3/api-docs/**",
+                                "/ws",
+                                "/ws/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
