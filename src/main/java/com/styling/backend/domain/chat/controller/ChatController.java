@@ -85,6 +85,33 @@ public class ChatController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "채팅 메시지 수정")
+    @PatchMapping("/{roomPk}/message/{msgPk}")
+    public ResponseEntity<Void> updateMessage(
+            @PathVariable Long roomPk,
+            @PathVariable Long msgPk,
+            @Valid @RequestBody ChatMessageRequestDto requestDto
+    ) {
+        chatService.updateMessage(
+                roomPk,
+                msgPk,
+                requestDto.getMsgContent()
+        );
+
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "채팅 메시지 삭제")
+    @DeleteMapping("/{roomPk}/message/{msgPk}")
+    public ResponseEntity<Void> deleteMessage(
+            @PathVariable Long roomPk,
+            @PathVariable Long msgPk
+    ) {
+        chatService.deleteMessage(roomPk, msgPk);
+
+        return ResponseEntity.ok().build();
+    }
+
     @Operation(summary = "활성 채팅방 목록 조회")
     @GetMapping("/rooms")
     public ResponseEntity<List<ChatRoomListResponseDto>> getActiveChatRooms() {

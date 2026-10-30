@@ -31,6 +31,11 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
             Byte isRead
     );
 
+    Optional<ChatMessage> findByMsgPkAndChatRoom_RoomPkAndDeletedAtIsNull(
+            Long msgPk,
+            Long roomPk
+    );
+
     @Modifying
     @Query("DELETE FROM ChatMessage cm WHERE cm.chatRoom.roomPk = :roomPk")
     void deleteByRoomPk(@Param("roomPk") Long roomPk);

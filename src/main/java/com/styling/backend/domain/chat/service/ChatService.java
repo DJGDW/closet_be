@@ -23,4 +23,8 @@ public interface ChatService {
     List<ChatRoomListResponseDto> getActiveChatRooms();
 
     List<ChatRoomListResponseDto> getClosedChatRooms();
+
+    void updateMessage(Long roomPk, Long msgPk, String msgContent);
+
+    void deleteMessage(Long roomPk, Long msgPk);
 }

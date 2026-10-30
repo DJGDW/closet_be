@@ -205,6 +205,61 @@ public class ChatServiceImpl implements ChatService {
         return getChatRoomsByStatus(user, ChatRoom.STATUS_CLOSED);
     }
 
+    @Override
+    @Transactional
+    public void updateMessage(Long roomPk, Long msgPk, String msgContent) {
+        User user = getAuthenticatedUser();
+
+        ChatRoom chatRoom = chatRoomRepository.findById(roomPk)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        validateRoomParticipant(chatRoom, user);
+
+        if (chatRoom.getRoomStatus() != ChatRoom.STATUS_ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        ChatMessage message = chatMessageRepository
+                .findByMsgPkAndChatRoom_RoomPkAndDeletedAtIsNull(msgPk, roomPk)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.INVALID_REQUEST));
+
+        if (!message.getSender().getUserPk().equals(user.getUserPk())
+                || message.getMsgType() != ChatMessage.TYPE_TEXT) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        message.updateContent(msgContent);
+    }
+
+    @Override
+    @Transactional
+    public void deleteMessage(Long roomPk, Long msgPk) {
+        User user = getAuthenticatedUser();
+
+        ChatRoom chatRoom = chatRoomRepository.findById(roomPk)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        validateRoomParticipant(chatRoom, user);
+
+        if (chatRoom.getRoomStatus() != ChatRoom.STATUS_ACTIVE) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        ChatMessage message = chatMessageRepository
+                .findByMsgPkAndChatRoom_RoomPkAndDeletedAtIsNull(msgPk, roomPk)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.INVALID_REQUEST));
+
+        if (!message.getSender().getUserPk().equals(user.getUserPk())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        message.delete();
+    }
+
     private List<ChatRoomListResponseDto> getChatRoomsByStatus(
             User user,
             Byte roomStatus
