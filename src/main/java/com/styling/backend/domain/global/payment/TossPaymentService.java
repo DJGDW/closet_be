@@ -1,4 +1,4 @@
-package com.styling.backend.global.payment;
+package com.styling.backend.domain.global.payment;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

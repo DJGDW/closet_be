@@ -1,6 +1,6 @@
 package com.styling.backend.domain.follow.controller;
 
-import com.styling.backend.domain.follow.dto.response.FollowResponseDto;
+import com.styling.backend.domain.follow.dto.FollowResponseDto;
 import com.styling.backend.domain.follow.service.FollowService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;

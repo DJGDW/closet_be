@@ -4,7 +4,7 @@ import com.styling.backend.domain.location.entity.Location;
 import com.styling.backend.domain.plan.entity.Plan;
 import com.styling.backend.domain.styletype.entity.StyleType;
 import com.styling.backend.domain.stylist.dto.StylistRegisterRequestDto;
-import com.styling.backend.domain.stylist.dto.response.StylistDetailResponseDto;
+import com.styling.backend.domain.stylist.dto.StylistDetailResponseDto;
 import com.styling.backend.domain.stylist.entity.Stylist;
 import com.styling.backend.domain.stylist.entity.StylistPlan;
 import com.styling.backend.domain.stylist.entity.StylistStyleType;

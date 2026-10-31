@@ -1,6 +1,6 @@
 package com.styling.backend.domain.post.service.impl;
 
-import com.styling.backend.domain.post.entity.Hashtag;
+import com.styling.backend.domain.hashtag.entity.Hashtag;
 import com.styling.backend.domain.post.entity.Post;
 import com.styling.backend.domain.post.entity.PostHashtag;
 import com.styling.backend.domain.hashtag.repository.HashtagRepository;
@@ -13,7 +13,7 @@ import com.styling.backend.domain.styletype.entity.StyleType;
 import com.styling.backend.domain.styletype.repository.StyleTypeRepository;
 import com.styling.backend.domain.stylist.entity.Stylist;
 import com.styling.backend.domain.stylist.repository.StylistRepository;
-import com.styling.backend.global.image.ImageService;
+import com.styling.backend.domain.global.image.ImageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

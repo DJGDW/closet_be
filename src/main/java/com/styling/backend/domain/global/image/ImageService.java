@@ -1,4 +1,4 @@
-package com.styling.backend.global.image;
+package com.styling.backend.domain.global.image;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;

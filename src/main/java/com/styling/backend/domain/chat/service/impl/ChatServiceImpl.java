@@ -15,7 +15,7 @@ import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.repository.UserRepository;
 import com.styling.backend.exception.BusinessException;
 import com.styling.backend.exception.ErrorCode;
-import com.styling.backend.global.image.ImageService;
+import com.styling.backend.domain.global.image.ImageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

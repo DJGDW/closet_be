@@ -1,4 +1,4 @@
-package com.styling.backend.domain.stylist.dto.response;
+package com.styling.backend.domain.stylist.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
