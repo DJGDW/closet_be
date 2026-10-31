@@ -16,7 +16,7 @@ import * as SecureStore from "expo-secure-store";
 
 import { MOCK_STYLISTS, type Stylist } from "../../data/stylists";
 
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://localhost:8080";
 
 type ExplorePost = {
   postPk: number;
@@ -201,7 +201,7 @@ export default function StylistProfileScreen() {
       style={{ flex: 1, backgroundColor: "#FFFFFF" }}
       edges={["top"]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* 상단 헤더 */}
       <View

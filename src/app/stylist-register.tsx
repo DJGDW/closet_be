@@ -1,4 +1,3 @@
-
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
@@ -18,7 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import styles from "../styles/stylist-register.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://localhost:8080";
 
 const LOCATIONS = [
   { id: 1, name: "서울특별시" },
@@ -68,14 +67,22 @@ const PLANS = [
     name: "실버",
     englishName: "SILVER",
     description: "더 자세한 스타일 상담",
-    features: ["채팅 + 영상 통화", "최대 2~3회 스타일 제안", "추천 상품 및 코디 제공"],
+    features: [
+      "채팅 + 영상 통화",
+      "최대 2~3회 스타일 제안",
+      "추천 상품 및 코디 제공",
+    ],
   },
   {
     id: 3,
     name: "골드",
     englishName: "GOLD",
     description: "맞춤형 스타일링 솔루션",
-    features: ["맞춤 스타일 상담", "퍼스널 스타일링 컨설팅", "코디 제안 및 쇼핑 가이드"],
+    features: [
+      "맞춤 스타일 상담",
+      "퍼스널 스타일링 컨설팅",
+      "코디 제안 및 쇼핑 가이드",
+    ],
   },
 ];
 
@@ -90,7 +97,9 @@ export default function StylistRegisterScreen() {
   const [step, setStep] = useState(1);
   const [introduction, setIntroduction] = useState("");
   const [specialtyIntroduction, setSpecialtyIntroduction] = useState("");
-  const [selectedCustomerGroups, setSelectedCustomerGroups] = useState<string[]>([]);
+  const [selectedCustomerGroups, setSelectedCustomerGroups] = useState<
+    string[]
+  >([]);
   const [locationPk, setLocationPk] = useState<number | null>(null);
   const [styleTypePks, setStyleTypePks] = useState<number[]>([]);
   const [planPrices, setPlanPrices] = useState<Record<number, PlanPrice>>({
@@ -168,7 +177,10 @@ export default function StylistRegisterScreen() {
     for (const plan of selectedPlans) {
       const price = Number(planPrices[plan.id].price);
       if (!Number.isInteger(price) || price <= 0) {
-        showMessage("플랜 가격", `${plan.name} 플랜의 가격을 1원 이상 입력해 주세요.`);
+        showMessage(
+          "플랜 가격",
+          `${plan.name} 플랜의 가격을 1원 이상 입력해 주세요.`,
+        );
         return;
       }
     }
@@ -182,7 +194,10 @@ export default function StylistRegisterScreen() {
           : await SecureStore.getItemAsync("accessToken");
 
       if (!accessToken) {
-        showMessage("로그인 필요", "로그인 정보가 없습니다. 다시 로그인해 주세요.");
+        showMessage(
+          "로그인 필요",
+          "로그인 정보가 없습니다. 다시 로그인해 주세요.",
+        );
         return;
       }
 
@@ -204,32 +219,29 @@ export default function StylistRegisterScreen() {
       });
 
       if (response.status === 201) {
-  const profileData = {
-    introduction: introduction.trim(),
-    locationPk,
-    styleTypePks,
-    plans: selectedPlans.map((plan) => ({
-      planPk: plan.id,
-      price: Number(planPrices[plan.id].price),
-    })),
-  };
+        const profileData = {
+          introduction: introduction.trim(),
+          locationPk,
+          styleTypePks,
+          plans: selectedPlans.map((plan) => ({
+            planPk: plan.id,
+            price: Number(planPrices[plan.id].price),
+          })),
+        };
 
-  if (Platform.OS === "web") {
-    localStorage.setItem(
-      "myStylistProfile",
-      JSON.stringify(profileData),
-    );
-  } else {
-    await SecureStore.setItemAsync(
-      "myStylistProfile",
-      JSON.stringify(profileData),
-    );
-  }
+        if (Platform.OS === "web") {
+          localStorage.setItem("myStylistProfile", JSON.stringify(profileData));
+        } else {
+          await SecureStore.setItemAsync(
+            "myStylistProfile",
+            JSON.stringify(profileData),
+          );
+        }
 
-  showMessage("등록 완료", "스타일리스트 등록이 완료되었습니다.");
-  router.replace("/mypage");
-  return;
-}
+        showMessage("등록 완료", "스타일리스트 등록이 완료되었습니다.");
+        router.replace("/mypage");
+        return;
+      }
       const responseText = await response.text();
       let errorMessage = "스타일리스트 등록에 실패했습니다.";
 
@@ -243,7 +255,8 @@ export default function StylistRegisterScreen() {
       }
 
       if (response.status === 401 || response.status === 403) {
-        errorMessage = "로그인이 만료되었거나 등록 권한이 없습니다. 다시 로그인해 주세요.";
+        errorMessage =
+          "로그인이 만료되었거나 등록 권한이 없습니다. 다시 로그인해 주세요.";
       } else if (response.status === 409) {
         errorMessage = "이미 스타일리스트로 등록되어 있는지 확인해 주세요.";
       }
@@ -262,7 +275,7 @@ export default function StylistRegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       <KeyboardAvoidingView
         style={styles.screen}
@@ -294,13 +307,19 @@ export default function StylistRegisterScreen() {
                 <Text
                   style={[
                     styles.progressNumber,
-                    (step === item || step > item) && styles.progressNumberActive,
+                    (step === item || step > item) &&
+                      styles.progressNumberActive,
                   ]}
                 >
                   {item}
                 </Text>
               </View>
-              <Text style={[styles.progressLabel, step === item && styles.progressLabelActive]}>
+              <Text
+                style={[
+                  styles.progressLabel,
+                  step === item && styles.progressLabelActive,
+                ]}
+              >
                 {["기본 정보", "전문 분야", "서비스 설정"][item - 1]}
               </Text>
             </View>
@@ -345,7 +364,9 @@ export default function StylistRegisterScreen() {
                 maxLength={255}
                 textAlignVertical="top"
               />
-              <Text style={styles.characterCount}>{introduction.length}/255</Text>
+              <Text style={styles.characterCount}>
+                {introduction.length}/255
+              </Text>
 
               <Text style={styles.fieldLabel}>주요 고객층 (선택)</Text>
               <View style={styles.customerRow}>
@@ -354,10 +375,18 @@ export default function StylistRegisterScreen() {
                   return (
                     <Pressable
                       key={group}
-                      style={[styles.customerChip, selected && styles.chipSelected]}
+                      style={[
+                        styles.customerChip,
+                        selected && styles.chipSelected,
+                      ]}
                       onPress={() => toggleCustomerGroup(group)}
                     >
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          selected && styles.chipTextSelected,
+                        ]}
+                      >
                         {group}
                       </Text>
                     </Pressable>
@@ -366,18 +395,26 @@ export default function StylistRegisterScreen() {
               </View>
 
               <Text style={styles.fieldLabel}>활동 지역 *</Text>
-              <Text style={styles.helperText}>활동할 지역을 하나 선택해 주세요.</Text>
+              <Text style={styles.helperText}>
+                활동할 지역을 하나 선택해 주세요.
+              </Text>
               <View style={styles.locationGrid}>
                 {LOCATIONS.map((location) => {
                   const selected = locationPk === location.id;
                   return (
                     <Pressable
                       key={location.id}
-                      style={[styles.locationChip, selected && styles.chipSelected]}
+                      style={[
+                        styles.locationChip,
+                        selected && styles.chipSelected,
+                      ]}
                       onPress={() => setLocationPk(location.id)}
                     >
                       <Text
-                        style={[styles.chipText, selected && styles.chipTextSelected]}
+                        style={[
+                          styles.chipText,
+                          selected && styles.chipTextSelected,
+                        ]}
                         numberOfLines={1}
                       >
                         {location.name}
@@ -403,10 +440,18 @@ export default function StylistRegisterScreen() {
                   return (
                     <Pressable
                       key={style.id}
-                      style={[styles.styleChip, selected && styles.chipSelected]}
+                      style={[
+                        styles.styleChip,
+                        selected && styles.chipSelected,
+                      ]}
                       onPress={() => toggleStyle(style.id)}
                     >
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          selected && styles.chipTextSelected,
+                        ]}
+                      >
                         {style.name}
                       </Text>
                     </Pressable>
@@ -417,7 +462,9 @@ export default function StylistRegisterScreen() {
               <Text style={styles.fieldLabel}>선택한 스타일</Text>
               <Text style={styles.selectedSummary}>
                 {styleTypePks.length
-                  ? STYLE_TYPES.filter((style) => styleTypePks.includes(style.id))
+                  ? STYLE_TYPES.filter((style) =>
+                      styleTypePks.includes(style.id),
+                    )
                       .map((style) => style.name)
                       .join(" · ")
                   : "선택한 스타일이 여기에 표시됩니다."}
@@ -451,19 +498,31 @@ export default function StylistRegisterScreen() {
                 return (
                   <View
                     key={plan.id}
-                    style={[styles.planCard, planState.selected && styles.planCardSelected]}
+                    style={[
+                      styles.planCard,
+                      planState.selected && styles.planCardSelected,
+                    ]}
                   >
                     <Pressable
                       style={styles.planHeader}
                       onPress={() => togglePlan(plan.id)}
                     >
                       <View style={styles.planHeadingLeft}>
-                        <View style={[styles.radio, planState.selected && styles.radioSelected]}>
-                          {planState.selected && <View style={styles.radioDot} />}
+                        <View
+                          style={[
+                            styles.radio,
+                            planState.selected && styles.radioSelected,
+                          ]}
+                        >
+                          {planState.selected && (
+                            <View style={styles.radioDot} />
+                          )}
                         </View>
                         <View style={styles.planNameArea}>
                           <Text style={styles.planName}>{plan.name}</Text>
-                          <Text style={styles.planDescription}>{plan.description}</Text>
+                          <Text style={styles.planDescription}>
+                            {plan.description}
+                          </Text>
                         </View>
                       </View>
                       <Text style={styles.planCode}>{plan.englishName}</Text>
@@ -475,7 +534,9 @@ export default function StylistRegisterScreen() {
                         <TextInput
                           style={styles.priceInput}
                           value={planState.price}
-                          onChangeText={(value) => updatePlanPrice(plan.id, value)}
+                          onChangeText={(value) =>
+                            updatePlanPrice(plan.id, value)
+                          }
                           placeholder="가격 입력"
                           placeholderTextColor="#AAAAAA"
                           keyboardType="number-pad"
@@ -488,7 +549,7 @@ export default function StylistRegisterScreen() {
                     <View style={styles.featureList}>
                       {plan.features.map((feature) => (
                         <Text key={feature} style={styles.featureText}>
-                          ✓  {feature}
+                          ✓ {feature}
                         </Text>
                       ))}
                     </View>
@@ -497,7 +558,8 @@ export default function StylistRegisterScreen() {
               })}
 
               <Text style={styles.helperText}>
-                선택한 플랜은 최소 1개 이상이어야 하며, 가격은 1원 이상 입력해야 해요.
+                선택한 플랜은 최소 1개 이상이어야 하며, 가격은 1원 이상 입력해야
+                해요.
               </Text>
             </>
           )}
@@ -522,4 +584,3 @@ export default function StylistRegisterScreen() {
     </SafeAreaView>
   );
 }
-

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
+import { Alert } from "react-native";
 import {
   Image,
   Pressable,
@@ -62,7 +63,7 @@ export default function PaymentScreen() {
       style={{ flex: 1, backgroundColor: "#FFFFFF" }}
       edges={["top"]}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       {/* 상단 헤더 */}
       <View
@@ -348,6 +349,8 @@ export default function PaymentScreen() {
       </ScrollView>
 
       {/* 하단 결제 영역 */}
+
+      {/* 하단 결제 영역 */}
       <View
         style={{
           paddingHorizontal: 18,
@@ -358,8 +361,26 @@ export default function PaymentScreen() {
       >
         <Pressable
           onPress={() => {
-            if (!agreed) return;
-            // 실제 결제 기능은 추후 연결
+            if (!agreed) {
+              Alert.alert(
+                "약관 동의 필요",
+                "결제 진행 및 서비스 이용약관에 동의해주세요.",
+              );
+              return;
+            }
+
+            router.push({
+              pathname: "/stylist/[id]/payment-success",
+              params: {
+                id: id,
+                stylistName: stylist.name,
+                serviceName: selectedService.name,
+                price: String(price),
+                paymentMethod:
+                  PAYMENT_METHODS.find((method) => method.id === paymentMethod)
+                    ?.label ?? "",
+              },
+            });
           }}
           style={{
             height: 52,

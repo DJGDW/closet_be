@@ -1,4 +1,3 @@
-
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
@@ -20,7 +19,7 @@ import {
 } from "react-native";
 import styles from "../styles/create-post.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://localhost:8080";
 
 const STYLES = [
   { id: 1, label: "캐주얼" },
@@ -59,8 +58,7 @@ async function getAccessToken(): Promise<string | null> {
   try {
     if (Platform.OS === "web") {
       return (
-        localStorage.getItem("accessToken") ||
-        localStorage.getItem("token")
+        localStorage.getItem("accessToken") || localStorage.getItem("token")
       );
     }
 
@@ -80,14 +78,11 @@ function showMessage(title: string, message: string) {
 }
 
 export default function CreatePostScreen() {
-  const [pickedImage, setPickedImage] =
-    useState<PickedImage | null>(null);
+  const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
 
-  const [selectedStyles, setSelectedStyles] =
-    useState<number[]>([]);
+  const [selectedStyles, setSelectedStyles] = useState<number[]>([]);
 
-  const [selectedBodyTypes, setSelectedBodyTypes] =
-    useState<number[]>([]);
+  const [selectedBodyTypes, setSelectedBodyTypes] = useState<number[]>([]);
 
   const [hashtagInput, setHashtagInput] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
@@ -101,7 +96,7 @@ export default function CreatePostScreen() {
       if (!permission.granted) {
         showMessage(
           "사진 접근 권한",
-          "게시물에 사용할 사진을 선택하려면 사진 접근 권한이 필요해요."
+          "게시물에 사용할 사진을 선택하려면 사진 접근 권한이 필요해요.",
         );
         return;
       }
@@ -133,20 +128,17 @@ export default function CreatePostScreen() {
 
   const toggleSelection = (
     id: number,
-    update: React.Dispatch<React.SetStateAction<number[]>>
+    update: React.Dispatch<React.SetStateAction<number[]>>,
   ) => {
     update((previous) =>
       previous.includes(id)
         ? previous.filter((item) => item !== id)
-        : [...previous, id]
+        : [...previous, id],
     );
   };
 
   const addHashtag = () => {
-    const cleaned = hashtagInput
-      .trim()
-      .replace(/^#+/, "")
-      .replace(/\s+/g, "");
+    const cleaned = hashtagInput.trim().replace(/^#+/, "").replace(/\s+/g, "");
 
     if (!cleaned) {
       return;
@@ -162,9 +154,7 @@ export default function CreatePostScreen() {
   };
 
   const removeHashtag = (tag: string) => {
-    setHashtags((previous) =>
-      previous.filter((item) => item !== tag)
-    );
+    setHashtags((previous) => previous.filter((item) => item !== tag));
   };
 
   const submitPost = async () => {
@@ -173,17 +163,14 @@ export default function CreatePostScreen() {
     }
 
     if (!pickedImage) {
-      showMessage(
-        "사진을 선택해 주세요",
-        "게시물 사진이 필요해요."
-      );
+      showMessage("사진을 선택해 주세요", "게시물 사진이 필요해요.");
       return;
     }
 
     if (selectedStyles.length === 0) {
       showMessage(
         "스타일을 선택해 주세요",
-        "게시물의 스타일 태그를 하나 이상 선택해 주세요."
+        "게시물의 스타일 태그를 하나 이상 선택해 주세요.",
       );
       return;
     }
@@ -192,7 +179,7 @@ export default function CreatePostScreen() {
     if (selectedBodyTypes.length === 0) {
       showMessage(
         "체형 보완 태그를 선택해 주세요",
-        "현재 서버는 체형 보완 ID(ratioPk)를 필수로 요구해요."
+        "현재 서버는 체형 보완 ID(ratioPk)를 필수로 요구해요.",
       );
       return;
     }
@@ -205,7 +192,7 @@ export default function CreatePostScreen() {
       if (!token) {
         showMessage(
           "로그인이 필요해요",
-          "로그인 정보가 없어요. 다시 로그인해 주세요."
+          "로그인 정보가 없어요. 다시 로그인해 주세요.",
         );
         router.replace("/");
         return;
@@ -225,19 +212,17 @@ export default function CreatePostScreen() {
 
           const imageBlob = await imageResponse.blob();
 
-          imageFile = new File(
-            [imageBlob],
-            pickedImage.name,
-            { type: pickedImage.mimeType }
-          );
+          imageFile = new File([imageBlob], pickedImage.name, {
+            type: pickedImage.mimeType,
+          });
         }
 
         formData.append("image", imageFile, imageFile.name);
       } else {
-  const imageFile = new ExpoFile(pickedImage.uri);
+        const imageFile = new ExpoFile(pickedImage.uri);
 
-  formData.append("image", imageFile);
-}
+        formData.append("image", imageFile);
+      }
 
       // 백엔드 PostController의 필드명과 일치시킨다.
       formData.append("typePk", String(selectedStyles[0]));
@@ -274,7 +259,7 @@ export default function CreatePostScreen() {
         if (response.status === 401) {
           showMessage(
             "인증 오류",
-            "서버에서 로그인을 확인하지 못했어요. 다시 로그인해 주세요."
+            "서버에서 로그인을 확인하지 못했어요. 다시 로그인해 주세요.",
           );
           router.replace("/");
           return;
@@ -284,7 +269,8 @@ export default function CreatePostScreen() {
           showMessage(
             "게시물 등록 거부",
             "서버가 요청을 거부했어요. 로그인 토큰, 보안 필터 및 서버 로그를 확인해 주세요.\n\n" +
-              (responseText || "서버에서 상세 오류 메시지를 반환하지 않았어요.")
+              (responseText ||
+                "서버에서 상세 오류 메시지를 반환하지 않았어요."),
           );
           return;
         }
@@ -292,8 +278,7 @@ export default function CreatePostScreen() {
         showMessage(
           "게시물 등록 실패",
           `HTTP ${response.status}\n\n` +
-            (responseText ||
-              "서버에서 상세 오류 메시지를 반환하지 않았어요.")
+            (responseText || "서버에서 상세 오류 메시지를 반환하지 않았어요."),
         );
         return;
       }
@@ -305,7 +290,7 @@ export default function CreatePostScreen() {
 
       showMessage(
         "네트워크 오류",
-        "서버 연결 또는 이미지 전송 중 문제가 발생했어요. 백엔드가 실행 중인지 확인해 주세요."
+        "서버 연결 또는 이미지 전송 중 문제가 발생했어요. 백엔드가 실행 중인지 확인해 주세요.",
       );
     } finally {
       setSubmitting(false);
@@ -317,10 +302,7 @@ export default function CreatePostScreen() {
       <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
-        <Pressable
-          onPress={() => router.back()}
-          style={styles.backButton}
-        >
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backText}>‹</Text>
         </Pressable>
 
@@ -334,10 +316,7 @@ export default function CreatePostScreen() {
       >
         {/* 사진 등록 */}
         <View style={styles.imageSection}>
-          <Pressable
-            onPress={chooseImage}
-            style={styles.imagePicker}
-          >
+          <Pressable onPress={chooseImage} style={styles.imagePicker}>
             {pickedImage ? (
               <Image
                 source={{ uri: pickedImage.uri }}
@@ -354,9 +333,7 @@ export default function CreatePostScreen() {
 
           {pickedImage && (
             <Pressable onPress={chooseImage}>
-              <Text style={styles.changeImageText}>
-                사진 변경
-              </Text>
+              <Text style={styles.changeImageText}>사진 변경</Text>
             </Pressable>
           )}
         </View>
@@ -375,19 +352,11 @@ export default function CreatePostScreen() {
               return (
                 <Pressable
                   key={item.id}
-                  onPress={() =>
-                    toggleSelection(item.id, setSelectedStyles)
-                  }
-                  style={[
-                    styles.tag,
-                    selected && styles.selectedTag,
-                  ]}
+                  onPress={() => toggleSelection(item.id, setSelectedStyles)}
+                  style={[styles.tag, selected && styles.selectedTag]}
                 >
                   <Text
-                    style={[
-                      styles.tagText,
-                      selected && styles.selectedTagText,
-                    ]}
+                    style={[styles.tagText, selected && styles.selectedTagText]}
                   >
                     {item.label}
                   </Text>
@@ -411,19 +380,11 @@ export default function CreatePostScreen() {
               return (
                 <Pressable
                   key={item.id}
-                  onPress={() =>
-                    toggleSelection(item.id, setSelectedBodyTypes)
-                  }
-                  style={[
-                    styles.tag,
-                    selected && styles.selectedTag,
-                  ]}
+                  onPress={() => toggleSelection(item.id, setSelectedBodyTypes)}
+                  style={[styles.tag, selected && styles.selectedTag]}
                 >
                   <Text
-                    style={[
-                      styles.tagText,
-                      selected && styles.selectedTagText,
-                    ]}
+                    style={[styles.tagText, selected && styles.selectedTagText]}
                   >
                     {item.label}
                   </Text>
@@ -451,10 +412,7 @@ export default function CreatePostScreen() {
               onSubmitEditing={addHashtag}
             />
 
-            <Pressable
-              onPress={addHashtag}
-              style={styles.addButton}
-            >
+            <Pressable onPress={addHashtag} style={styles.addButton}>
               <Text style={styles.addButtonText}>추가</Text>
             </Pressable>
           </View>
@@ -491,14 +449,10 @@ export default function CreatePostScreen() {
             {submitting ? (
               <View style={styles.loadingRow}>
                 <ActivityIndicator color="#FFFFFF" />
-                <Text style={styles.submitButtonText}>
-                  등록 중...
-                </Text>
+                <Text style={styles.submitButtonText}>등록 중...</Text>
               </View>
             ) : (
-              <Text style={styles.submitButtonText}>
-                게시물 등록
-              </Text>
+              <Text style={styles.submitButtonText}>게시물 등록</Text>
             )}
           </LinearGradient>
         </Pressable>

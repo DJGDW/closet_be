@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import { Platform } from "react-native";
@@ -27,19 +26,19 @@ export default function MyPageScreen() {
 
   useEffect(() => {
     async function loadLoginUser() {
-  try {
-    const savedUser =
-      Platform.OS === "web"
-        ? localStorage.getItem("loginUser")
-        : await SecureStore.getItemAsync("loginUser");
+      try {
+        const savedUser =
+          Platform.OS === "web"
+            ? localStorage.getItem("loginUser")
+            : await SecureStore.getItemAsync("loginUser");
 
-    if (savedUser) {
-      setLoginUser(JSON.parse(savedUser) as LoginUser);
+        if (savedUser) {
+          setLoginUser(JSON.parse(savedUser) as LoginUser);
+        }
+      } catch (error) {
+        console.error("로그인 사용자 정보 조회 오류:", error);
+      }
     }
-  } catch (error) {
-    console.error("로그인 사용자 정보 조회 오류:", error);
-  }
-}
 
     loadLoginUser();
   }, []);
@@ -54,50 +53,45 @@ export default function MyPageScreen() {
   const [checkingStylist, setCheckingStylist] = useState(true);
 
   useEffect(() => {
-  const checkStylist = async () => {
-    try {
-      const accessToken =
-        Platform.OS === "web"
-          ? localStorage.getItem("accessToken")
-          : await SecureStore.getItemAsync("accessToken");
+    const checkStylist = async () => {
+      try {
+        const accessToken =
+          Platform.OS === "web"
+            ? localStorage.getItem("accessToken")
+            : await SecureStore.getItemAsync("accessToken");
 
-      if (!accessToken) {
-        setIsStylist(false);
-        return;
-      }
+        if (!accessToken) {
+          setIsStylist(false);
+          return;
+        }
 
-      const response = await fetch(
-        "http://192.168.0.5:8080/stylist/check",
-        {
+        const response = await fetch("http://localhost:8080/stylist/check", {
           method: "GET",
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
+        });
+
+        if (!response.ok) {
+          return;
         }
-      );
 
-      if (!response.ok) {
-        return;
+        const data = await response.json();
+
+        setIsStylist(data.isStylist ?? data.stylist ?? false);
+      } catch (error) {
+        console.error("스타일리스트 등록 여부 확인 실패:", error);
+      } finally {
+        setCheckingStylist(false);
       }
+    };
 
-      const data = await response.json();
-
-      setIsStylist(data.isStylist ?? data.stylist ?? false);
-    } catch (error) {
-      console.error("스타일리스트 등록 여부 확인 실패:", error);
-    } finally {
-      setCheckingStylist(false);
-    }
-  };
-
-  checkStylist();
-}, []);
-
-  
+    checkStylist();
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar barStyle="dark-content"  />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.screen}>
         <View style={styles.header}>
@@ -107,7 +101,7 @@ export default function MyPageScreen() {
 
           <Pressable
             style={styles.settingsButton}
-           onPress={() => router.push("/settings")}
+            onPress={() => router.push("/settings")}
             accessibilityRole="button"
             accessibilityLabel="설정"
           >
@@ -153,34 +147,34 @@ export default function MyPageScreen() {
             </Pressable>
           </View>
 
-         <Pressable
-  style={[
-    styles.stylistButton,
-    isStylist && styles.stylistEditButton,
-  ]}
-  onPress={() => {
-    if (checkingStylist) return;
+          <Pressable
+            style={[
+              styles.stylistButton,
+              isStylist && styles.stylistEditButton,
+            ]}
+            onPress={() => {
+              if (checkingStylist) return;
 
-    if (isStylist) {
-      router.push("/stylist-edit");
-    } else {
-      router.push("/stylist-register");
-    }
-  }}
->
-  <Text
-    style={[
-      styles.stylistButtonText,
-      isStylist && styles.stylistEditButtonText,
-    ]}
-  >
-    {checkingStylist
-      ? "확인 중..."
-      : isStylist
-        ? "스타일리스트 프로필 수정"
-        : "스타일리스트 등록하기"}
-  </Text>
-</Pressable>
+              if (isStylist) {
+                router.push("/stylist-edit");
+              } else {
+                router.push("/stylist-register");
+              }
+            }}
+          >
+            <Text
+              style={[
+                styles.stylistButtonText,
+                isStylist && styles.stylistEditButtonText,
+              ]}
+            >
+              {checkingStylist
+                ? "확인 중..."
+                : isStylist
+                  ? "스타일리스트 프로필 수정"
+                  : "스타일리스트 등록하기"}
+            </Text>
+          </Pressable>
 
           <View style={styles.menuList}>
             <Pressable

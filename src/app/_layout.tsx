@@ -9,9 +9,12 @@ import { styles } from "../styles/feed.styles";
 export default function RootLayout() {
   const pathname = usePathname();
 
-  const showBottomNavigation = ["/feed", "/search", "/mypage"].includes(
-    pathname,
-  );
+  const showBottomNavigation = [
+    "/feed",
+    "/search",
+    "/chat",
+    "/mypage",
+  ].includes(pathname);
 
   return (
     <SafeAreaProvider>

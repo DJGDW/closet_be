@@ -22,7 +22,7 @@ import { MOCK_STYLISTS } from "../data/stylists";
 import styles from "../styles/search.styles";
 
 // 로그인 화면과 동일한 백엔드 주소
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://localhost:8080";
 
 const CATEGORIES = [
   "전체",
@@ -349,7 +349,7 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.screenContainer}>
         <View style={styles.header}>
@@ -450,7 +450,7 @@ export default function SearchScreen() {
                   onPress={() => openStylistProfile(item.id)}
                 >
                   <Image
-                    source={{ uri: item.image }}
+                    source={item.image}
                     style={styles.profileSuggestionImage}
                   />
                   <Text style={styles.profileSuggestionName} numberOfLines={1}>

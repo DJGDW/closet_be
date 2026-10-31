@@ -178,7 +178,7 @@ export default function SignupStep1() {
     setIsCheckingId(true);
 
     try {
-      const url = `http://192.168.219.107:8080/user/check-id?userId=${encodeURIComponent(trimmedUserId)}`;
+      const url = `http://localhost:8080/user/check-id?userId=${encodeURIComponent(trimmedUserId)}`;
 
       const response = await fetch(url);
 

@@ -32,7 +32,7 @@ export default function LoginScreen() {
     setMessage("로그인 중...");
 
     try {
-      const response = await fetch("http://192.168.219.107:8080/user/login", {
+      const response = await fetch("http://localhost:8080/user/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

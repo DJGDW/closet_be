@@ -1,4 +1,3 @@
-
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -18,7 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://localhost:8080";
 
 type PostDetail = {
   profileImage: string | null;
@@ -73,12 +72,14 @@ export default function PostDetailScreen() {
         {
           method: "GET",
           headers,
-        }
+        },
       );
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          throw new Error("게시물을 조회할 권한이 없습니다. 로그인을 확인해주세요.");
+          throw new Error(
+            "게시물을 조회할 권한이 없습니다. 로그인을 확인해주세요.",
+          );
         }
 
         if (response.status === 404) {
@@ -86,7 +87,7 @@ export default function PostDetailScreen() {
         }
 
         throw new Error(
-          `게시물 조회에 실패했습니다. (HTTP ${response.status})`
+          `게시물 조회에 실패했습니다. (HTTP ${response.status})`,
         );
       }
 
@@ -115,7 +116,7 @@ export default function PostDetailScreen() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "게시물을 불러오지 못했습니다."
+          : "게시물을 불러오지 못했습니다.",
       );
     } finally {
       setLoading(false);
@@ -136,7 +137,7 @@ export default function PostDetailScreen() {
     if (!stylistPk) {
       Alert.alert(
         "스타일리스트 정보",
-        "스타일리스트 번호가 전달되지 않았습니다."
+        "스타일리스트 번호가 전달되지 않았습니다.",
       );
       return;
     }
@@ -155,7 +156,7 @@ export default function PostDetailScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.screen}>
         <View style={styles.header}>
@@ -270,9 +271,13 @@ export default function PostDetailScreen() {
                 <Text style={styles.sectionTitle}>스타일</Text>
 
                 <View style={styles.tagList}>
-                  {post.styleName.trim()
-                    ? renderTag(post.styleName, 0)
-                    : <Text style={styles.emptyText}>등록된 스타일이 없습니다.</Text>}
+                  {post.styleName.trim() ? (
+                    renderTag(post.styleName, 0)
+                  ) : (
+                    <Text style={styles.emptyText}>
+                      등록된 스타일이 없습니다.
+                    </Text>
+                  )}
                 </View>
               </View>
 
@@ -280,9 +285,13 @@ export default function PostDetailScreen() {
                 <Text style={styles.sectionTitle}>체형 보완</Text>
 
                 <View style={styles.tagList}>
-                  {post.ratioType.trim()
-                    ? renderTag(post.ratioType, 0)
-                    : <Text style={styles.emptyText}>등록된 체형 정보가 없습니다.</Text>}
+                  {post.ratioType.trim() ? (
+                    renderTag(post.ratioType, 0)
+                  ) : (
+                    <Text style={styles.emptyText}>
+                      등록된 체형 정보가 없습니다.
+                    </Text>
+                  )}
                 </View>
               </View>
 
@@ -294,8 +303,8 @@ export default function PostDetailScreen() {
                     post.hashtags.map((hashtag, index) =>
                       renderTag(
                         hashtag.startsWith("#") ? hashtag : `#${hashtag}`,
-                        index
-                      )
+                        index,
+                      ),
                     )
                   ) : (
                     <Text style={styles.emptyText}>

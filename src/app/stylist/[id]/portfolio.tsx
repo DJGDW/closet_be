@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://localhost:8080";
 
 type PortfolioPost = {
   postPk: number;

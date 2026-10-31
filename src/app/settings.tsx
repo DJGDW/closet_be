@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
@@ -87,8 +86,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
+      <StatusBar barStyle="dark-content" />
       <View style={styles.screen}>
         <View style={styles.header}>
           <Pressable
@@ -116,8 +114,7 @@ export default function SettingsScreen() {
                 key={item}
                 style={[
                   styles.menuRow,
-                  index === SETTINGS_ITEMS.length - 1 &&
-                    styles.lastMenuRow,
+                  index === SETTINGS_ITEMS.length - 1 && styles.lastMenuRow,
                 ]}
                 onPress={() => showNotReady(item)}
                 accessibilityRole="button"

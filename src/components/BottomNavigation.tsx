@@ -1,6 +1,5 @@
-
 import { useRouter, usePathname } from "expo-router";
-import { Alert, Platform, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import HomeActiveIcon from "../../assets/icons/nav-home-active.svg";
 import HomeIcon from "../../assets/icons/nav-home.svg";
@@ -51,7 +50,7 @@ export default function BottomNavigation() {
   const activeTab: TabKey =
     pathname === "/search"
       ? "search"
-      : pathname === "/chat"
+      : pathname.startsWith("/chat")
         ? "chat"
         : pathname === "/mypage"
           ? "mypage"
@@ -72,10 +71,8 @@ export default function BottomNavigation() {
         break;
 
       case "chat":
-        if (Platform.OS === "web") {
-          window.alert("채팅 화면은 아직 준비 중이에요.");
-        } else {
-          Alert.alert("채팅", "채팅 화면은 아직 준비 중이에요.");
+        if (pathname !== "/chat") {
+          router.push("/chat");
         }
         break;
 
@@ -89,13 +86,9 @@ export default function BottomNavigation() {
 
   return (
     <View style={styles.bottomNav}>
-      {(
-        ["home", "search", "chat", "mypage"] as TabKey[]
-      ).map((tab) => {
+      {(["home", "search", "chat", "mypage"] as TabKey[]).map((tab) => {
         const isActive = activeTab === tab;
-        const Icon = isActive
-          ? TAB_ICONS[tab].active
-          : TAB_ICONS[tab].inactive;
+        const Icon = isActive ? TAB_ICONS[tab].active : TAB_ICONS[tab].inactive;
 
         return (
           <Pressable
