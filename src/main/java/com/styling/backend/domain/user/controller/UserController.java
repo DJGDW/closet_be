@@ -4,7 +4,7 @@ import com.styling.backend.domain.user.dto.UserLoginRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginResponseDto;
 import com.styling.backend.domain.user.dto.UserSignupRequestDto;
 import com.styling.backend.domain.user.service.UserService;
-import com.styling.backend.global.image.ImageService;
+import com.styling.backend.domain.global.image.ImageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;

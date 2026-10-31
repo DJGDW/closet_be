@@ -1,4 +1,4 @@
-package com.styling.backend.domain.follow.dto.response;
+package com.styling.backend.domain.follow.dto;
 
 import com.styling.backend.domain.stylist.entity.Stylist;
 import lombok.Getter;

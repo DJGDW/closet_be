@@ -1,6 +1,6 @@
 package com.styling.backend.domain.follow.service;
 
-import com.styling.backend.domain.follow.dto.response.FollowResponseDto;
+import com.styling.backend.domain.follow.dto.FollowResponseDto;
 import com.styling.backend.domain.follow.entity.Follow;
 import com.styling.backend.domain.follow.repository.FollowRepository;
 import com.styling.backend.domain.stylist.entity.Stylist;

@@ -1,4 +1,4 @@
-package com.styling.backend.domain.post.entity;
+package com.styling.backend.domain.hashtag.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;

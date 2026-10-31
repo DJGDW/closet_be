@@ -3,6 +3,7 @@ package com.styling.backend.domain.post.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import com.styling.backend.domain.hashtag.entity.Hashtag;
 
 @Entity
 @Table(name = "post_hashtag")

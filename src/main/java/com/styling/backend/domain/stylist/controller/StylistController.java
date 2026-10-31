@@ -1,8 +1,8 @@
 package com.styling.backend.domain.stylist.controller;
 
 import com.styling.backend.domain.stylist.dto.StylistRegisterRequestDto;
-import com.styling.backend.domain.stylist.dto.response.StylistCheckResponseDto;
-import com.styling.backend.domain.stylist.dto.response.StylistDetailResponseDto;
+import com.styling.backend.domain.stylist.dto.StylistCheckResponseDto;
+import com.styling.backend.domain.stylist.dto.StylistDetailResponseDto;
 import com.styling.backend.domain.stylist.service.StylistService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;

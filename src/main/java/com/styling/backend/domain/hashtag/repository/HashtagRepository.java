@@ -1,6 +1,6 @@
 package com.styling.backend.domain.hashtag.repository;
 
-import com.styling.backend.domain.post.entity.Hashtag;
+import com.styling.backend.domain.hashtag.entity.Hashtag;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
