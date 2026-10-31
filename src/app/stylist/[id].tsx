@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
@@ -9,20 +11,138 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Platform } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
-import { MOCK_STYLISTS } from "../../data/stylists";
-import { useState } from "react";
+import { MOCK_STYLISTS, type Stylist } from "../../data/stylists";
+
+const API_BASE_URL = "http://192.168.219.107:8080";
+
+type ExplorePost = {
+  postPk: number;
+  imageUrl: string | null;
+  stylistPk: number | string;
+  stylistNickname?: string | null;
+};
+
+type ExploreResponse = {
+  content?: ExplorePost[];
+};
+
+type RegisteredProfile = {
+  introduction?: string;
+  locationPk?: number | string | null;
+  styleTypePks?: Array<number | string>;
+  plans?: Array<{
+    name?: string;
+    description?: string;
+    price?: number;
+    color?: string;
+  }>;
+};
+
+async function readStoredProfile(): Promise<RegisteredProfile | null> {
+  try {
+    let raw: string | null = null;
+
+    if (Platform.OS === "web") {
+      raw =
+        typeof localStorage !== "undefined"
+          ? localStorage.getItem("myStylistProfile")
+          : null;
+    } else {
+      raw = await SecureStore.getItemAsync("myStylistProfile");
+    }
+
+    if (!raw) return null;
+
+    return JSON.parse(raw) as RegisteredProfile;
+  } catch (error) {
+    console.error("스타일리스트 프로필 불러오기 실패:", error);
+    return null;
+  }
+}
 
 export default function StylistProfileScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string | string[] }>();
+  const id = Array.isArray(params.id) ? params.id[0] : params.id;
+
+  const baseStylist = MOCK_STYLISTS.find(
+    (item) => String(item.id) === String(id),
+  );
+
   const [selectedService, setSelectedService] = useState("BASIC");
+  const [registeredProfile, setRegisteredProfile] =
+    useState<RegisteredProfile | null>(null);
 
-  const stylist = MOCK_STYLISTS.find((item) => item.id === id);
+  const [portfolios, setPortfolios] = useState<ExplorePost[]>([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(true);
+  const [portfolioError, setPortfolioError] = useState("");
 
-  if (!stylist) {
+  useEffect(() => {
+    let active = true;
+
+    readStoredProfile().then((profile) => {
+      if (active) {
+        setRegisteredProfile(profile);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const loadPortfolios = useCallback(async () => {
+    if (!id) {
+      setPortfolios([]);
+      setPortfolioLoading(false);
+      setPortfolioError("스타일리스트 정보를 찾을 수 없습니다.");
+      return;
+    }
+
+    setPortfolioLoading(true);
+    setPortfolioError("");
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/post/explore?page=0&size=50&sort=latest`,
+      );
+
+      if (!response.ok) {
+        throw new Error(`게시물 조회 실패 (${response.status})`);
+      }
+
+      const data = (await response.json()) as ExploreResponse;
+      const posts = Array.isArray(data.content) ? data.content : [];
+
+      const matchedPosts = posts.filter(
+        (post) =>
+          String(post.stylistPk) === String(id) &&
+          typeof post.imageUrl === "string" &&
+          post.imageUrl.trim().length > 0,
+      );
+
+      setPortfolios(matchedPosts);
+    } catch (error) {
+      console.error("포트폴리오 조회 실패:", error);
+      setPortfolioError(
+        "포트폴리오를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    } finally {
+      setPortfolioLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    loadPortfolios();
+  }, [loadPortfolios]);
+
+  if (!baseStylist) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }}>
+        <StatusBar barStyle="dark-content" />
         <Pressable onPress={() => router.back()} style={{ padding: 16 }}>
           <Ionicons name="chevron-back" size={26} color="#292633" />
         </Pressable>
@@ -33,6 +153,49 @@ export default function StylistProfileScreen() {
     );
   }
 
+  const stylist: Stylist = {
+    ...baseStylist,
+    introduction:
+      registeredProfile?.introduction?.trim() || baseStylist.introduction,
+    services:
+      registeredProfile?.plans && registeredProfile.plans.length > 0
+        ? registeredProfile.plans.map((plan, index) => ({
+            name:
+              plan.name ||
+              ["BASIC", "SILVER", "GOLD"][index] ||
+              `PLAN ${index + 1}`,
+            description: plan.description || "스타일링 서비스",
+            price: typeof plan.price === "number" ? plan.price : 0,
+            color: plan.color || ["#8275E8", "#68AAB5", "#D99A35"][index % 3],
+          }))
+        : baseStylist.services,
+  };
+
+  const selectedServiceData =
+    stylist.services.find((service) => service.name === selectedService) ||
+    stylist.services[0];
+
+  const visiblePortfolios = portfolios.slice(0, 3);
+
+  const goToPortfolio = () => {
+    router.push({
+      pathname: "/stylist/[id]/portfolio",
+      params: { id: String(id) },
+    });
+  };
+
+  const goToPayment = () => {
+    if (!selectedServiceData) return;
+
+    router.push({
+      pathname: "/stylist/[id]/payment",
+      params: {
+        id: String(id),
+        service: selectedServiceData.name,
+      },
+    });
+  };
+
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: "#FFFFFF" }}
@@ -40,6 +203,7 @@ export default function StylistProfileScreen() {
     >
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
+      {/* 상단 헤더 */}
       <View
         style={{
           height: 48,
@@ -72,8 +236,9 @@ export default function StylistProfileScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 16 }}
       >
+        {/* 프로필 */}
         <Image
-          source={{ uri: stylist.image }}
+          source={stylist.image}
           style={{
             width: "100%",
             height: 190,
@@ -90,6 +255,7 @@ export default function StylistProfileScreen() {
             <Ionicons name="checkmark-circle" size={17} color="#4A9AC8" />
           </View>
 
+          {/* 스타일 카테고리 */}
           <View
             style={{
               flexDirection: "row",
@@ -115,6 +281,7 @@ export default function StylistProfileScreen() {
             ))}
           </View>
 
+          {/* 평점 및 리뷰 */}
           <View
             style={{
               flexDirection: "row",
@@ -132,6 +299,7 @@ export default function StylistProfileScreen() {
             </Text>
           </View>
 
+          {/* 자기소개 */}
           <Text
             style={{
               fontSize: 15,
@@ -156,6 +324,7 @@ export default function StylistProfileScreen() {
             }}
           />
 
+          {/* 서비스 선택 */}
           <Text
             style={{
               fontSize: 15,
@@ -253,6 +422,7 @@ export default function StylistProfileScreen() {
             );
           })}
 
+          {/* 포트폴리오 */}
           <View
             style={{
               flexDirection: "row",
@@ -266,32 +436,93 @@ export default function StylistProfileScreen() {
               포트폴리오
             </Text>
 
-            <Pressable
-              onPress={() => router.push(`/stylist/${stylist.id}/portfolio`)}
-              hitSlop={8}
-            >
+            <Pressable onPress={goToPortfolio} hitSlop={8}>
               <Text style={{ fontSize: 12, color: "#777481" }}>더보기 ›</Text>
             </Pressable>
           </View>
 
-          <View style={{ flexDirection: "row", gap: 7 }}>
-            {stylist.portfolios.slice(0, 3).map((uri, index) => (
-              <Image
-                key={`${uri}-${index}`}
-                source={{ uri }}
-                resizeMode="cover"
+          {portfolioLoading ? (
+            <View
+              style={{
+                minHeight: 110,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <ActivityIndicator size="small" color="#8275E8" />
+              <Text style={{ fontSize: 12, color: "#888888" }}>
+                포트폴리오를 불러오는 중입니다.
+              </Text>
+            </View>
+          ) : portfolioError ? (
+            <View
+              style={{
+                minHeight: 110,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <Text style={{ fontSize: 12, color: "#888888" }}>
+                {portfolioError}
+              </Text>
+
+              <Pressable
+                onPress={loadPortfolios}
                 style={{
-                  flex: 1,
-                  height: 100,
-                  borderRadius: 7,
-                  backgroundColor: "#E7E5EC",
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  backgroundColor: "#F4F2FF",
+                  borderRadius: 8,
                 }}
-              />
-            ))}
-          </View>
+              >
+                <Text style={{ fontSize: 12, color: "#8275E8" }}>
+                  다시 시도
+                </Text>
+              </Pressable>
+            </View>
+          ) : visiblePortfolios.length === 0 ? (
+            <View
+              style={{
+                minHeight: 110,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <Ionicons name="images-outline" size={28} color="#AAAAAA" />
+              <Text style={{ fontSize: 12, color: "#888888" }}>
+                등록된 포트폴리오가 없습니다.
+              </Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: "row", gap: 7 }}>
+              {visiblePortfolios.map((post) => (
+                <Pressable
+                  key={post.postPk}
+                  style={{
+                    flex: 1,
+                    height: 120,
+                    borderRadius: 7,
+                    overflow: "hidden",
+                    backgroundColor: "#E7E5EC",
+                  }}
+                  onPress={() => router.push(`/post/${post.postPk}` as never)}
+                >
+                  <Image
+                    source={{ uri: post.imageUrl! }}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
       </ScrollView>
 
+      {/* 하단 고정 버튼 */}
       <View
         style={{
           flexDirection: "row",
@@ -320,15 +551,7 @@ export default function StylistProfileScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => {
-            router.push({
-              pathname: "/stylist/[id]/payment",
-              params: {
-                id: stylist.id,
-                service: selectedService,
-              },
-            });
-          }}
+          onPress={goToPayment}
           style={{
             flex: 1.6,
             height: 46,

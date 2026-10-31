@@ -1,30 +1,38 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   Modal,
+  Platform,
   Pressable,
-  ScrollView,
+  RefreshControl,
   StatusBar,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as SecureStore from "expo-secure-store";
 
-import styles from "../styles/search.styles";
-import { COLORS } from "../styles/feed.styles";
-import { useRouter } from "expo-router";
 import { MOCK_STYLISTS } from "../data/stylists";
+import styles from "../styles/search.styles";
+
+// 로그인 화면과 동일한 백엔드 주소
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 const CATEGORIES = [
+  "전체",
   "캐주얼",
   "스트릿",
   "미니멀",
   "댄디",
   "포멀",
   "아메카지",
+  "이모키드",
   "빈티지",
   "고프코어",
   "Y2K",
@@ -33,21 +41,154 @@ const CATEGORIES = [
   "스포츠/애슬레저",
 ];
 
-type SortType = "최신순" | "좋아요 많은 순" | "후기 많은 순";
+type SortType = "LATEST" | "LIKES";
+
+type ExplorePost = {
+  postPk: number;
+  imageUrl: string;
+  styleName: string;
+  ratioType?: string | null;
+  stylistPk: number;
+  stylistNickname: string;
+  stylistRating?: number | null;
+  viewCount?: number;
+  likeCount?: number;
+};
+
+const STYLE_ALIASES: Record<string, string[]> = {
+  캐주얼: ["캐주얼", "casual"],
+  스트릿: ["스트릿", "스트리트", "street"],
+  미니멀: ["미니멀", "minimal"],
+  댄디: ["댄디", "dandy"],
+  포멀: ["포멀", "formal"],
+  아메카지: ["아메카지", "아메리칸 캐주얼", "amekaji"],
+  이모키드: ["이모키드", "emo"],
+  빈티지: ["빈티지", "vintage"],
+  고프코어: ["고프코어", "gorpcore"],
+  Y2K: ["y2k"],
+  페미닌: ["페미닌", "feminine"],
+  모던: ["모던", "modern"],
+  "스포츠/애슬레저": ["스포츠", "애슬레저", "sports", "athleisure"],
+};
+
+function matchesCategory(post: ExplorePost, category: string) {
+  const searchable = `${post.styleName ?? ""} ${post.ratioType ?? ""}`
+    .toLowerCase()
+    .replace(/\s/g, "");
+
+  const aliases = STYLE_ALIASES[category] ?? [category];
+
+  return aliases.some((alias) =>
+    searchable.includes(alias.toLowerCase().replace(/\s/g, "")),
+  );
+}
 
 export default function SearchScreen() {
-  const router = useRouter();
+  const [posts, setPosts] = useState<ExplorePost[]>([]);
   const [keyword, setKeyword] = useState("");
+
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  const [sort, setSort] = useState<SortType>("LATEST");
+
   const [filterVisible, setFilterVisible] = useState(false);
   const [draftCategories, setDraftCategories] = useState<string[]>([]);
-  const [sortType, setSortType] = useState<SortType>("최신순");
-  const [draftSortType, setDraftSortType] = useState<SortType>("최신순");
+  const [draftSort, setDraftSort] = useState<SortType>("LATEST");
 
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  // 백엔드 게시물 불러오기
+  const fetchExplorePosts = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setErrorMessage("");
+
+      try {
+        let token: string | null;
+
+        if (Platform.OS === "web") {
+          token = localStorage.getItem("accessToken");
+        } else {
+          token = await SecureStore.getItemAsync("accessToken");
+        }
+
+        if (!token) {
+          setPosts([]);
+          setErrorMessage("로그인이 필요합니다. 다시 로그인해주세요.");
+          return;
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/post/explore?page=0&size=50&sort=${sort}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (response.status === 401 || response.status === 403) {
+          setPosts([]);
+          setErrorMessage("로그인 인증이 만료되었어요. 다시 로그인해주세요.");
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(`게시물 요청 실패: HTTP ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        const postList: ExplorePost[] = Array.isArray(result)
+          ? result
+          : Array.isArray(result.content)
+            ? result.content
+            : Array.isArray(result.data)
+              ? result.data
+              : Array.isArray(result.posts)
+                ? result.posts
+                : [];
+
+        setPosts(
+          postList.filter(
+            (post) =>
+              post &&
+              post.postPk != null &&
+              typeof post.imageUrl === "string" &&
+              post.imageUrl.trim().length > 0,
+          ),
+        );
+      } catch (error) {
+        console.error("탐색 게시물 불러오기 오류:", error);
+        setErrorMessage(
+          "게시물을 불러오지 못했어요. 서버 연결을 확인하고 다시 시도해주세요.",
+        );
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [sort],
+  );
+
+  useEffect(() => {
+    fetchExplorePosts();
+  }, [fetchExplorePosts]);
+
+  // 기존 스타일리스트 검색 기능 유지
   const filteredStylists = useMemo(() => {
-    let result = MOCK_STYLISTS.filter((stylist) => {
-      const searchTerm = keyword.trim().toLowerCase();
+    const searchTerm = keyword.trim().toLowerCase();
 
+    return MOCK_STYLISTS.filter((stylist) => {
       const matchesKeyword =
         searchTerm.length === 0 ||
         stylist.name.toLowerCase().includes(searchTerm) ||
@@ -63,125 +204,216 @@ export default function SearchScreen() {
 
       return matchesKeyword && matchesCategories;
     });
+  }, [keyword, selectedCategories]);
 
-    if (sortType === "좋아요 많은 순") {
-      result = [...result].sort((a, b) => b.likes - a.likes);
-    } else if (sortType === "후기 많은 순") {
-      result = [...result].sort((a, b) => b.reviews - a.reviews);
+  // 백엔드 게시물 검색 및 카테고리 필터링
+  const filteredPosts = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+
+    return posts.filter((post) => {
+      const searchableText = [
+        post.styleName ?? "",
+        post.stylistNickname ?? "",
+        post.ratioType ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      const matchesKeyword =
+        normalizedKeyword.length === 0 ||
+        searchableText.includes(normalizedKeyword);
+
+      const matchesSelectedCategories =
+        selectedCategories.length === 0 ||
+        selectedCategories.some((category) => matchesCategory(post, category));
+
+      return matchesKeyword && matchesSelectedCategories;
+    });
+  }, [posts, keyword, selectedCategories]);
+
+  // 카테고리 선택 및 해제
+  const toggleCategory = (
+    category: string,
+    current: string[],
+    update: (categories: string[]) => void,
+  ) => {
+    if (category === "전체") {
+      update([]);
+      return;
     }
 
-    return result;
-  }, [keyword, selectedCategories, sortType]);
+    update(
+      current.includes(category)
+        ? current.filter((item) => item !== category)
+        : [...current, category],
+    );
+  };
 
+  // 필터 모달 열기
   const openFilter = () => {
     setDraftCategories([...selectedCategories]);
-    setDraftSortType(sortType);
+    setDraftSort(sort);
     setFilterVisible(true);
   };
 
-  const toggleCategory = (category: string) => {
-    setSelectedCategories((current) =>
-      current.includes(category)
-        ? current.filter((item) => item !== category)
-        : [...current, category],
-    );
-  };
-
-  const toggleDraftCategory = (category: string) => {
-    setDraftCategories((current) =>
-      current.includes(category)
-        ? current.filter((item) => item !== category)
-        : [...current, category],
-    );
-  };
-
+  // 필터 적용
   const applyFilter = () => {
     setSelectedCategories([...draftCategories]);
-    setSortType(draftSortType);
+    setSort(draftSort);
     setFilterVisible(false);
   };
 
-  const modalPreviewCount = MOCK_STYLISTS.filter((stylist) => {
-    const matchesKeyword = stylist.name
-      .toLowerCase()
-      .includes(keyword.trim().toLowerCase());
+  // 필터 초기화
+  const resetFilters = () => {
+    setKeyword("");
+    setSelectedCategories([]);
+    setDraftCategories([]);
+    setDraftSort("LATEST");
+    setSort("LATEST");
+    setFilterVisible(false);
+  };
 
-    const matchesCategories =
-      draftCategories.length === 0 ||
-      draftCategories.some((category) => stylist.categories.includes(category));
+  // 게시물 상세 화면 이동
+  const openPostDetail = (item: ExplorePost) => {
+    router.push({
+      pathname: "/post/[postPk]",
+      params: {
+        postPk: String(item.postPk),
+        stylistPk: String(item.stylistPk),
+      },
+    });
+  };
 
-    return matchesKeyword && matchesCategories;
-  }).length;
+  // 스타일리스트 프로필 이동
+  const openStylistProfile = (stylistId: string | number) => {
+    router.push(`/stylist/${stylistId}` as never);
+  };
+
+  // 게시물 카드
+  const renderPost = ({ item }: { item: ExplorePost }) => {
+    const nickname = item.stylistNickname || "스타일리스트";
+    const initial = nickname.trim().charAt(0) || "S";
+
+    return (
+      <View style={styles.postCard}>
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={() => openPostDetail(item)}
+          accessibilityRole="button"
+          accessibilityLabel="게시물 상세 보기"
+        >
+          <Image
+            source={{ uri: item.imageUrl }}
+            style={styles.postImage}
+            resizeMode="cover"
+          />
+
+          <LinearGradient
+            colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.2)", "rgba(0,0,0,0.9)"]}
+            locations={[0, 0.4, 1]}
+            style={styles.imageGradient}
+            pointerEvents="none"
+          />
+
+          <View style={styles.likeBadge} pointerEvents="none">
+            <Ionicons name="heart-outline" size={13} color="#FFFFFF" />
+            <Text style={styles.likeCount}>{item.likeCount ?? 0}</Text>
+          </View>
+
+          <View style={styles.stylistInfo} pointerEvents="none">
+            <View style={styles.profileCircle}>
+              <Text style={styles.profileInitial}>{initial.toUpperCase()}</Text>
+            </View>
+
+            <View style={styles.stylistTextArea}>
+              <Text style={styles.stylistName} numberOfLines={1}>
+                {nickname}
+              </Text>
+
+              <Text style={styles.stylistStyle} numberOfLines={1}>
+                {item.styleName || "스타일"}
+              </Text>
+            </View>
+          </View>
+        </Pressable>
+
+        <Pressable
+          style={styles.profileHitArea}
+          onPress={() => openStylistProfile(item.stylistPk)}
+          accessibilityRole="button"
+          accessibilityLabel={`${nickname} 프로필 보기`}
+        />
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <View style={styles.screenContainer}>
-        <StatusBar
-          barStyle="dark-content"
-          backgroundColor={COLORS.background}
-        />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
+      <View style={styles.screenContainer}>
         <View style={styles.header}>
           <Text style={styles.headerTitle}>탐색</Text>
         </View>
 
-        <View style={styles.searchBox}>
-          <Ionicons name="search-outline" size={20} color={COLORS.subText} />
+        {/* 검색창과 필터 버튼 */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search-outline" size={20} color="#777777" />
 
-          <TextInput
-            value={keyword}
-            onChangeText={setKeyword}
-            placeholder="스타일리스트, 스타일을 검색해보세요"
-            placeholderTextColor="#999999"
-            style={styles.searchInput}
-            returnKeyType="search"
-            autoCapitalize="none"
-          />
+            <TextInput
+              style={styles.searchInput}
+              value={keyword}
+              onChangeText={setKeyword}
+              placeholder="스타일 또는 스타일리스트 검색"
+              placeholderTextColor="#999999"
+              returnKeyType="search"
+              autoCapitalize="none"
+            />
 
-          {keyword.length > 0 && (
-            <Pressable onPress={() => setKeyword("")}>
-              <Ionicons name="close-circle" size={19} color={COLORS.subText} />
-            </Pressable>
-          )}
+            {keyword.length > 0 && (
+              <Pressable
+                onPress={() => setKeyword("")}
+                accessibilityLabel="검색어 지우기"
+              >
+                <Ionicons name="close-circle" size={19} color="#AAAAAA" />
+              </Pressable>
+            )}
+          </View>
+
+          <Pressable
+            style={styles.filterButton}
+            onPress={openFilter}
+            accessibilityRole="button"
+            accessibilityLabel="필터 열기"
+          >
+            <Ionicons name="options-outline" size={22} color="#222222" />
+          </Pressable>
         </View>
 
-        <View
-          style={[
-            styles.categoryArea,
-            { flexDirection: "row", alignItems: "center" },
-          ]}
-        >
-          {/* 왼쪽: 수평 스크롤 영역 */}
-          <ScrollView
+        {/* 카테고리 */}
+        <View style={styles.categoryArea}>
+          <FlatList
             horizontal
-            style={{ flex: 1 }}
-            contentContainerStyle={[styles.categoryList, { paddingRight: 8 }]}
+            data={CATEGORIES}
+            keyExtractor={(item) => item}
             showsHorizontalScrollIndicator={false}
-          >
-            <Pressable
-              onPress={() => setSelectedCategories([])}
-              style={[
-                styles.categoryChip,
-                selectedCategories.length === 0 && styles.categoryChipActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.categoryText,
-                  selectedCategories.length === 0 && styles.categoryTextActive,
-                ]}
-              >
-                전체
-              </Text>
-            </Pressable>
-
-            {CATEGORIES.map((category) => {
-              const active = selectedCategories.includes(category);
+            contentContainerStyle={styles.categoryList}
+            renderItem={({ item }) => {
+              const active =
+                item === "전체"
+                  ? selectedCategories.length === 0
+                  : selectedCategories.includes(item);
 
               return (
                 <Pressable
-                  key={category}
-                  onPress={() => toggleCategory(category)}
+                  onPress={() =>
+                    toggleCategory(
+                      item,
+                      selectedCategories,
+                      setSelectedCategories,
+                    )
+                  }
                   style={[
                     styles.categoryChip,
                     active && styles.categoryChipActive,
@@ -193,275 +425,258 @@ export default function SearchScreen() {
                       active && styles.categoryTextActive,
                     ]}
                   >
-                    {category}
+                    {item}
                   </Text>
                 </Pressable>
               );
-            })}
-          </ScrollView>
-
-          {/* 오른쪽: 고정 필터 버튼 */}
-          <Pressable
-            style={[
-              styles.filterChip,
-              {
-                marginLeft: 6,
-                flexShrink: 0,
-                alignSelf: "center",
-              },
-            ]}
-            onPress={openFilter}
-            accessibilityRole="button"
-            accessibilityLabel="필터 열기"
-          >
-            <Ionicons name="options-outline" size={15} color={COLORS.text} />
-            <Text style={styles.filterChipText}>필터</Text>
-          </Pressable>
+            }}
+          />
         </View>
 
         {/* 검색어와 관련된 스타일리스트 프로필 */}
         {keyword.trim().length > 0 && (
-          <View style={{ marginTop: 8, marginBottom: 0 }}>
-            <Text
-              style={[styles.resultTitle, { marginBottom: 6, marginLeft: 12 }]}
-            >
-              스타일리스트 프로필
-            </Text>
+          <View style={styles.profileSection}>
+            <Text style={styles.profileSectionTitle}>스타일리스트 프로필</Text>
 
-            <ScrollView
+            <FlatList
               horizontal
+              data={filteredStylists}
+              keyExtractor={(item) => String(item.id)}
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingHorizontal: 12,
-                gap: 14,
-              }}
-            >
-              {filteredStylists.map((stylist) => (
+              contentContainerStyle={styles.profileList}
+              renderItem={({ item }) => (
                 <Pressable
-                  key={stylist.id}
-                  style={{ width: 68, alignItems: "center" }}
-                  onPress={() => {
-                    router.push(`/stylist/${stylist.id}`);
-                  }}
+                  style={styles.profileSuggestion}
+                  onPress={() => openStylistProfile(item.id)}
                 >
                   <Image
-                    source={{ uri: stylist.image }}
-                    style={{
-                      width: 58,
-                      height: 58,
-                      borderRadius: 29,
-                      backgroundColor: "#E7E5EC",
-                    }}
+                    source={{ uri: item.image }}
+                    style={styles.profileSuggestionImage}
                   />
-
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      marginTop: 6,
-                      fontSize: 11,
-                      color: COLORS.text,
-                      textAlign: "center",
-                      width: 68,
-                    }}
-                  >
-                    {stylist.name}
+                  <Text style={styles.profileSuggestionName} numberOfLines={1}>
+                    {item.name}
                   </Text>
                 </Pressable>
-              ))}
-            </ScrollView>
-
-            {filteredStylists.length === 0 && (
-              <Text
-                style={{
-                  marginHorizontal: 12,
-                  fontSize: 12,
-                  color: COLORS.subText,
-                }}
-              >
-                관련 스타일리스트가 없습니다.
-              </Text>
-            )}
+              )}
+              ListEmptyComponent={
+                <Text style={styles.noProfileText}>
+                  관련 스타일리스트가 없습니다.
+                </Text>
+              }
+            />
           </View>
         )}
 
-        <View
-          style={[
-            styles.resultHeader,
-            {
-              marginTop: keyword.trim().length > 0 ? 4 : 0,
-              marginBottom: 0,
-            },
-          ]}
-        >
-          <Text style={styles.resultTitle}>관련 포트폴리오</Text>
+        {/* 게시물 결과 */}
+        <View style={styles.resultHeader}>
+          <View>
+            <Text style={styles.resultTitle}>관련 게시물</Text>
+            <Text style={styles.resultCount}>
+              {filteredPosts.length}개의 게시물
+            </Text>
+          </View>
+
+          <Pressable
+            style={styles.refreshButton}
+            onPress={() => fetchExplorePosts(true)}
+            accessibilityLabel="게시물 새로고침"
+          >
+            <Ionicons name="refresh-outline" size={19} color="#4D458B" />
+          </Pressable>
         </View>
 
-        <FlatList
-          data={filteredStylists}
-          numColumns={2}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.gridContent}
-          columnWrapperStyle={styles.gridRow}
-          showsVerticalScrollIndicator={false}
-          renderItem={({ item }) => (
+        {loading ? (
+          <View style={styles.centerState}>
+            <ActivityIndicator size="large" color="#4D458B" />
+            <Text style={styles.stateDescription}>
+              게시물을 불러오는 중이에요.
+            </Text>
+          </View>
+        ) : errorMessage ? (
+          <View style={styles.centerState}>
+            <Ionicons name="cloud-offline-outline" size={42} color="#999999" />
+            <Text style={styles.stateTitle}>불러오기에 실패했어요</Text>
+            <Text style={styles.stateDescription}>{errorMessage}</Text>
+
             <Pressable
-              style={styles.stylistCard}
-              onPress={() => {
-                router.push(`/stylist/${item.id}`);
-              }}
+              style={styles.retryButton}
+              onPress={() => fetchExplorePosts()}
             >
-              <Image source={{ uri: item.image }} style={styles.stylistImage} />
-
-              <View style={styles.imageShade} />
-
-              <View style={styles.stylistInfo}>
-                <Image source={{ uri: item.image }} style={styles.avatar} />
-
-                <View style={styles.stylistTextArea}>
-                  <Text style={styles.stylistName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-
-                  <Text style={styles.stylistCategory} numberOfLines={1}>
-                    {item.categories.join(" · ")}
-                  </Text>
-                </View>
-              </View>
+              <Text style={styles.retryButtonText}>다시 시도</Text>
             </Pressable>
-          )}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIcon}>
-                <Ionicons
-                  name="image-outline"
-                  size={29}
-                  color={COLORS.subText}
-                />
-              </View>
+          </View>
+        ) : (
+          <FlatList
+            key="explore-grid"
+            data={filteredPosts}
+            keyExtractor={(item) => String(item.postPk)}
+            renderItem={renderPost}
+            numColumns={2}
+            columnWrapperStyle={styles.gridRow}
+            contentContainerStyle={styles.gridContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={() => fetchExplorePosts(true)}
+                tintColor="#4D458B"
+              />
+            }
+            ListEmptyComponent={
+              <View style={styles.centerState}>
+                <Ionicons name="images-outline" size={44} color="#BBBBBB" />
+                <Text style={styles.stateTitle}>
+                  조건에 맞는 게시물이 없습니다.
+                </Text>
+                <Text style={styles.stateDescription}>
+                  검색어나 카테고리를 변경해 보세요.
+                </Text>
 
-              <Text style={styles.emptyTitle}>
-                조건에 맞는 포트폴리오가 없습니다.
-              </Text>
-
-              <Text style={styles.emptyDescription}>
-                검색어나 카테고리를 변경해 보세요.
-              </Text>
-
-              <Pressable
-                style={styles.resetButton}
-                onPress={() => {
-                  setKeyword("");
-                  setSelectedCategories([]);
-                  setSortType("최신순");
-                }}
-              >
-                <Text style={styles.resetButtonText}>조건 초기화</Text>
-              </Pressable>
-            </View>
-          }
-        />
-
-        <Modal
-          visible={filterVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setFilterVisible(false)}
-        >
-          <View style={styles.modalRoot}>
-            <Pressable
-              style={styles.modalBackdrop}
-              onPress={() => setFilterVisible(false)}
-            />
-
-            <View style={styles.filterSheet}>
-              <View style={styles.sheetHandle} />
-
-              <View style={styles.sheetHeader}>
-                <Text style={styles.sheetTitle}>필터</Text>
-
-                <Pressable onPress={() => setFilterVisible(false)}>
-                  <Ionicons name="close" size={24} color={COLORS.text} />
+                <Pressable style={styles.retryButton} onPress={resetFilters}>
+                  <Text style={styles.retryButtonText}>검색 조건 초기화</Text>
                 </Pressable>
               </View>
+            }
+          />
+        )}
+      </View>
 
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.sheetScrollContent}
+      {/* 상세 필터 모달 */}
+      <Modal
+        visible={filterVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={styles.modalOutside}
+            onPress={() => setFilterVisible(false)}
+            accessibilityLabel="필터 닫기"
+          />
+
+          <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>필터</Text>
+
+              <Pressable
+                onPress={() => setFilterVisible(false)}
+                accessibilityLabel="필터 닫기"
               >
-                <Text style={styles.sectionTitle}>스타일 카테고리</Text>
+                <Ionicons name="close" size={23} color="#222222" />
+              </Pressable>
+            </View>
 
-                <View style={styles.filterCategoryGrid}>
-                  {CATEGORIES.map((category) => {
-                    const active = draftCategories.includes(category);
+            <Text style={styles.sectionTitle}>스타일 카테고리</Text>
 
-                    return (
-                      <Pressable
-                        key={category}
-                        onPress={() => toggleDraftCategory(category)}
-                        style={[
-                          styles.filterCategory,
-                          active && styles.filterCategoryActive,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.filterCategoryText,
-                            active && styles.filterCategoryTextActive,
-                          ]}
-                        >
-                          {category}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+            <Text style={styles.selectionHint}>
+              여러 항목을 선택할 수 있어요.
+            </Text>
 
-                <View style={styles.sheetDivider} />
-
-                <Text style={styles.sectionTitle}>정렬 기준</Text>
-
-                {(
-                  ["최신순", "좋아요 많은 순", "후기 많은 순"] as SortType[]
-                ).map((option) => {
-                  const active = draftSortType === option;
+            <View style={styles.filterCategoryGrid}>
+              {CATEGORIES.filter((category) => category !== "전체").map(
+                (category) => {
+                  const active = draftCategories.includes(category);
 
                   return (
                     <Pressable
-                      key={option}
-                      style={styles.sortOption}
-                      onPress={() => setDraftSortType(option)}
+                      key={category}
+                      style={[
+                        styles.filterCategoryChip,
+                        active && styles.filterCategoryChipActive,
+                      ]}
+                      onPress={() =>
+                        toggleCategory(
+                          category,
+                          draftCategories,
+                          setDraftCategories,
+                        )
+                      }
                     >
-                      <View style={styles.radioOuter}>
-                        {active && <View style={styles.radioInner} />}
-                      </View>
-
-                      <Text style={styles.sortOptionText}>{option}</Text>
+                      <Text
+                        style={[
+                          styles.filterCategoryText,
+                          active && styles.filterCategoryTextActive,
+                        ]}
+                      >
+                        {category}
+                      </Text>
                     </Pressable>
                   );
-                })}
-              </ScrollView>
+                },
+              )}
+            </View>
 
-              <View style={styles.sheetFooter}>
-                <Pressable
-                  style={styles.clearButton}
-                  onPress={() => {
-                    setDraftCategories([]);
-                    setDraftSortType("최신순");
-                  }}
-                >
-                  <Text style={styles.clearButtonText}>초기화</Text>
-                </Pressable>
+            <Pressable
+              style={styles.selectAllButton}
+              onPress={() => setDraftCategories([])}
+            >
+              <Ionicons
+                name={
+                  draftCategories.length === 0
+                    ? "checkmark-circle"
+                    : "ellipse-outline"
+                }
+                size={17}
+                color="#4D458B"
+              />
+              <Text style={styles.selectAllText}>전체 카테고리 보기</Text>
+            </Pressable>
 
-                <Pressable style={styles.applyButton} onPress={applyFilter}>
-                  <Text style={styles.applyButtonText}>
-                    필터 적용 ({modalPreviewCount})
-                  </Text>
-                </Pressable>
-              </View>
+            <View style={styles.modalDivider} />
+
+            <Text style={styles.sectionTitle}>정렬 기준</Text>
+
+            <Pressable
+              style={styles.sortOption}
+              onPress={() => setDraftSort("LATEST")}
+            >
+              <Text style={styles.sortOptionText}>최신순</Text>
+              <Ionicons
+                name={
+                  draftSort === "LATEST"
+                    ? "radio-button-on"
+                    : "radio-button-off"
+                }
+                size={20}
+                color={draftSort === "LATEST" ? "#4D458B" : "#999999"}
+              />
+            </Pressable>
+
+            <Pressable
+              style={styles.sortOption}
+              onPress={() => setDraftSort("LIKES")}
+            >
+              <Text style={styles.sortOptionText}>좋아요 많은 순</Text>
+              <Ionicons
+                name={
+                  draftSort === "LIKES" ? "radio-button-on" : "radio-button-off"
+                }
+                size={20}
+                color={draftSort === "LIKES" ? "#4D458B" : "#999999"}
+              />
+            </Pressable>
+
+            <View style={styles.modalButtonRow}>
+              <Pressable
+                style={styles.resetModalButton}
+                onPress={() => {
+                  setDraftCategories([]);
+                  setDraftSort("LATEST");
+                }}
+              >
+                <Text style={styles.resetModalButtonText}>초기화</Text>
+              </Pressable>
+
+              <Pressable style={styles.applyButton} onPress={applyFilter}>
+                <Text style={styles.applyButtonText}>필터 적용</Text>
+              </Pressable>
             </View>
           </View>
-        </Modal>
-      </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

@@ -109,7 +109,7 @@ export default function PaymentScreen() {
           }}
         >
           <Image
-            source={{ uri: stylist.image }}
+            source={stylist.image}
             style={{
               width: 56,
               height: 56,
