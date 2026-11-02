@@ -89,6 +89,23 @@ public class PostController {
         return ResponseEntity.ok(posts);
     }
 
+    @Operation(summary = "내가 좋아요 누른 게시글 목록 조회")
+    @GetMapping("/liked")
+    public ResponseEntity<Page<PostRecommendationResponseDto>> getLikedPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        if (page < 0 || size < 1 || size > 50) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        return ResponseEntity.ok(
+                postReactionService.getLikedPosts(pageable)
+        );
+    }
+
     @Operation(summary = "게시글 상세 조회")
     @GetMapping("/{postPk}")
     public ResponseEntity<PostDetailResponseDto> getPostDetail(

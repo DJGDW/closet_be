@@ -1,6 +1,7 @@
 package com.styling.backend.domain.follow.controller;
 
 import com.styling.backend.domain.follow.dto.FollowResponseDto;
+import com.styling.backend.domain.follow.dto.FollowerResponseDto;
 import com.styling.backend.domain.follow.service.FollowService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
@@ -35,5 +36,11 @@ public class FollowController {
     @GetMapping
     public ResponseEntity<List<FollowResponseDto>> getFollowings() {
         return ResponseEntity.ok(followService.getFollowings());
+    }
+
+    @Operation(summary = "나를 팔로우한 사용자 목록 조회")
+    @GetMapping("/followers")
+    public ResponseEntity<List<FollowerResponseDto>> getFollowers() {
+        return ResponseEntity.ok(followService.getFollowers());
     }
 }

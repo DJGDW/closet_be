@@ -1,19 +1,23 @@
 package com.styling.backend.domain.post.service.impl;
 
+import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 import com.styling.backend.domain.post.dto.PostReactionRequestDto;
+import com.styling.backend.domain.post.dto.PostRecommendationResponseDto;
 import com.styling.backend.domain.post.entity.Post;
 import com.styling.backend.domain.post.mapper.PostReactionMapper;
 import com.styling.backend.domain.post.repository.PostReactionRepository;
 import com.styling.backend.domain.post.repository.PostRepository;
 import com.styling.backend.domain.post.service.PostReactionService;
+import com.styling.backend.domain.stylist.entity.Stylist;
 import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 
 @Service
 @RequiredArgsConstructor
@@ -101,5 +105,37 @@ public class PostReactionServiceImpl implements PostReactionService {
                 postReactionRepository.countByPost_PostPkAndReactionType(postPk, 1);
 
         return new PostReactionCountResponseDto(likeCount, dislikeCount);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PostRecommendationResponseDto> getLikedPosts(Pageable pageable) {
+        User user = getLoginUser();
+
+        return postReactionRepository
+                .findAllByUser_UserPkAndReactionTypeOrderByCreatedAtDesc(
+                        user.getUserPk(), 0, pageable
+                )
+                .map(reaction -> toLikedPostResponseDto(reaction.getPost()));
+    }
+
+    private PostRecommendationResponseDto toLikedPostResponseDto(Post post) {
+        Stylist stylist = post.getStylist();
+
+        long likeCount = postReactionRepository
+                .countByPost_PostPkAndReactionType(post.getPostPk(), 0);
+
+        return PostRecommendationResponseDto.builder()
+                .postPk(post.getPostPk())
+                .imageUrl(post.getContent())
+                .styleName(post.getStyleType().getStyleName())
+                .ratioType(post.getRatioType().getRatioType())
+                .stylistPk(stylist.getStylistPk())
+                .stylistNickname(stylist.getUser().getNickname())
+                .stylistRating(stylist.getRating())
+                .viewCount(post.getViewCount())
+                .likeCount(likeCount)
+                .recommendationScore(0.0)
+                .build();
     }
 }
