@@ -1,6 +1,7 @@
 package com.styling.backend.domain.follow.service;
 
 import com.styling.backend.domain.follow.dto.FollowResponseDto;
+import com.styling.backend.domain.follow.dto.FollowerResponseDto;
 import com.styling.backend.domain.follow.entity.Follow;
 import com.styling.backend.domain.follow.repository.FollowRepository;
 import com.styling.backend.domain.stylist.entity.Stylist;
@@ -77,6 +78,22 @@ public class FollowServiceImpl implements FollowService {
         return followRepository.findAllByUser_UserPk(user.getUserPk())
                 .stream()
                 .map(follow -> new FollowResponseDto(follow.getStylist()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FollowerResponseDto> getFollowers() {
+        String userId = SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getName();
+
+        Stylist stylist = stylistRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new IllegalArgumentException("스타일리스트를 찾을 수 없습니다."));
+
+        return followRepository.findAllByStylist_StylistPk(stylist.getStylistPk())
+                .stream()
+                .map(follow -> new FollowerResponseDto(follow.getUser()))
                 .toList();
     }
 }
