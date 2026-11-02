@@ -185,7 +185,28 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void completeOrder(Long orderPk) {
+    public void requestOrderCompletion(Long orderPk) {
+        User user = getLoginUser();
+
+        Order order = orderRepository
+                .findById(orderPk)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.getStylist().getUser().getUserPk().equals(user.getUserPk())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
+                || !Byte.valueOf(Order.PROCESS_IN_PROGRESS).equals(order.getProcessStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        order.requestServiceCompletion();
+    }
+
+    @Override
+    @Transactional
+    public void confirmOrderCompletion(Long orderPk) {
         User user = getLoginUser();
 
         Order order = orderRepository
@@ -196,11 +217,11 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
 
         if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
-                || !Byte.valueOf(Order.PROCESS_IN_PROGRESS).equals(order.getProcessStatus())) {
+                || !Byte.valueOf(Order.PROCESS_COMPLETION_REQUESTED).equals(order.getProcessStatus())) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
-        order.completeService();
+        order.confirmServiceCompletion();
     }
 
     @Override

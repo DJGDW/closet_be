@@ -22,7 +22,9 @@ public interface OrderService {
             PaymentCancelRequestDto request
     );
 
-    void completeOrder(Long orderPk);
+    void requestOrderCompletion(Long orderPk);
+
+    void confirmOrderCompletion(Long orderPk);
 
     List<OrderListResponseDto> getOrderList();
 
