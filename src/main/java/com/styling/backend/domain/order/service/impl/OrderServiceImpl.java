@@ -222,6 +222,9 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.confirmServiceCompletion();
+
+        chatRoomRepository.findByOrder_OrderPk(orderPk)
+                .ifPresent(ChatRoom::close);
     }
 
     @Override
