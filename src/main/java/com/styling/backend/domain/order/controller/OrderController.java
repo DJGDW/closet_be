@@ -48,18 +48,49 @@ public class OrderController {
         return orderService.cancelPayment(request);
     }
 
-    @Operation(summary = "서비스 완료", description = "고객이 본인의 진행 중인 주문을 완료 처리합니다.")
-    @PatchMapping("/{orderPk}/complete")
+    @Operation(summary = "서비스 완료 요청", description = "스타일리스트가 구매자에게 서비스 완료를 요청합니다.")
+    @PatchMapping("/{orderPk}/complete/request")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void completeOrder(
+    public void requestOrderCompletion(
             @PathVariable Long orderPk
     ) {
-        orderService.completeOrder(orderPk);
+        orderService.requestOrderCompletion(orderPk);
+    }
+
+    @Operation(summary = "서비스 완료 확인", description = "구매자가 스타일리스트의 완료 요청을 승인하고 주문을 최종 완료합니다.")
+    @PatchMapping("/{orderPk}/complete/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmOrderCompletion(
+            @PathVariable Long orderPk
+    ) {
+        orderService.confirmOrderCompletion(orderPk);
     }
 
     @Operation(summary = "주문 목록 조회", description = "로그인한 고객의 주문 목록을 최신순으로 조회합니다.")
     @GetMapping
     public List<OrderListResponseDto> getOrderList() {
         return orderService.getOrderList();
+    }
+
+    @Operation(summary = "플랜 업그레이드 결제 생성", description = "기존 주문의 상위 플랜 업그레이드를 위한 추가 결제 정보를 생성합니다.")
+    @PostMapping("/{orderPk}/upgrade")
+    @ResponseStatus(HttpStatus.CREATED)
+    public OrderCreateResponseDto createUpgradePayment(
+            @PathVariable Long orderPk,
+            @Valid @RequestBody OrderCreateRequestDto request
+    ) {
+        return orderService.createUpgradePayment(
+                orderPk,
+                request.getStylistPlanPk()
+        );
+    }
+
+    @Operation(summary = "플랜 업그레이드 결제 승인", description = "추가 결제를 승인하고 기존 주문의 플랜을 변경합니다.")
+    @PostMapping("/upgrade/payment/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmUpgradePayment(
+            @Valid @RequestBody PaymentConfirmRequestDto request
+    ) {
+        orderService.confirmUpgradePayment(request);
     }
 }

@@ -22,7 +22,8 @@ public class Order {
 
     public static final byte PROCESS_PENDING = 0;
     public static final byte PROCESS_IN_PROGRESS = 1;
-    public static final byte PROCESS_COMPLETED = 2;
+    public static final byte PROCESS_COMPLETION_REQUESTED = 2;
+    public static final byte PROCESS_COMPLETED = 3;
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -102,9 +103,17 @@ public class Order {
         this.orderStarted = approvedAt;
     }
 
-    public void completeService() {
+    public void requestServiceCompletion() {
+        this.processStatus = PROCESS_COMPLETION_REQUESTED;
+    }
+
+    public void confirmServiceCompletion() {
         this.processStatus = PROCESS_COMPLETED;
         this.orderFinished = Instant.now();
+    }
+
+    public void upgradePlan(StylistPlan stylistPlan) {
+        this.stylistPlan = stylistPlan;
     }
 
     public void cancelPayment(String cancelReason) {

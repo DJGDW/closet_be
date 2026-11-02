@@ -6,6 +6,7 @@ import com.styling.backend.domain.location.repository.LocationRepository;
 import com.styling.backend.domain.plan.entity.Plan;
 import com.styling.backend.domain.plan.repository.PlanRepository;
 import com.styling.backend.domain.post.repository.PostRepository;
+import com.styling.backend.domain.review.repository.ReviewRepository;
 import com.styling.backend.domain.styletype.entity.StyleType;
 import com.styling.backend.domain.styletype.repository.StyleTypeRepository;
 import com.styling.backend.domain.stylist.dto.StylistRegisterRequestDto;
@@ -49,6 +50,7 @@ public class StylistService {
     private final StylistMapper stylistMapper;
     private final PostRepository postRepository;
     private final FollowRepository followRepository;
+    private final ReviewRepository reviewRepository;
 
     @Transactional
     public void register(StylistRegisterRequestDto request) {
@@ -274,12 +276,16 @@ public class StylistService {
         Long followerCount =
                 followRepository.countByStylist_StylistPk(stylistPk);
 
+        Long reviewCount =
+                reviewRepository.countByStylist_StylistPk(stylistPk);
+
         return stylistMapper.toDetailResponseDto(
                 stylist,
                 stylistStyleTypes,
                 stylistPlans,
                 postCount,
-                followerCount
+                followerCount,
+                reviewCount
         );
     }
 }

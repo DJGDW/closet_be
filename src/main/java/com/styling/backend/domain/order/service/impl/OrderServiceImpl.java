@@ -11,7 +11,9 @@ import com.styling.backend.domain.order.dto.PaymentCancelResponseDto;
 import com.styling.backend.domain.order.dto.PaymentConfirmRequestDto;
 import com.styling.backend.domain.order.dto.PaymentConfirmResponseDto;
 import com.styling.backend.domain.order.entity.Order;
+import com.styling.backend.domain.order.entity.OrderUpgradePayment;
 import com.styling.backend.domain.order.repository.OrderRepository;
+import com.styling.backend.domain.order.repository.OrderUpgradePaymentRepository;
 import com.styling.backend.domain.order.service.OrderService;
 import com.styling.backend.domain.stylist.entity.StylistPlan;
 import com.styling.backend.domain.stylist.repository.StylistPlanRepository;
@@ -36,6 +38,7 @@ import java.util.UUID;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
+    private final OrderUpgradePaymentRepository orderUpgradePaymentRepository;
     private final StylistPlanRepository stylistPlanRepository;
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
@@ -182,7 +185,28 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void completeOrder(Long orderPk) {
+    public void requestOrderCompletion(Long orderPk) {
+        User user = getLoginUser();
+
+        Order order = orderRepository
+                .findById(orderPk)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!order.getStylist().getUser().getUserPk().equals(user.getUserPk())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
+                || !Byte.valueOf(Order.PROCESS_IN_PROGRESS).equals(order.getProcessStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        order.requestServiceCompletion();
+    }
+
+    @Override
+    @Transactional
+    public void confirmOrderCompletion(Long orderPk) {
         User user = getLoginUser();
 
         Order order = orderRepository
@@ -193,11 +217,11 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
 
         if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
-                || !Byte.valueOf(Order.PROCESS_IN_PROGRESS).equals(order.getProcessStatus())) {
+                || !Byte.valueOf(Order.PROCESS_COMPLETION_REQUESTED).equals(order.getProcessStatus())) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
-        order.completeService();
+        order.confirmServiceCompletion();
     }
 
     @Override
@@ -221,6 +245,150 @@ public class OrderServiceImpl implements OrderService {
                         order.getOrderFinished()
                 ))
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public OrderCreateResponseDto createUpgradePayment(
+            Long orderPk,
+            Long stylistPlanPk
+    ) {
+        User user = getLoginUser();
+
+        Order order = orderRepository
+                .findByOrderPkAndUser_UserPk(orderPk, user.getUserPk())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
+                || !Byte.valueOf(Order.PROCESS_IN_PROGRESS).equals(order.getProcessStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        StylistPlan targetPlan = stylistPlanRepository
+                .findById(stylistPlanPk)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REQUEST));
+
+        if (!order.getStylist().getStylistPk()
+                .equals(targetPlan.getStylist().getStylistPk())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        int currentTier = getPlanTier(order.getStylistPlan().getPlan().getPlanCode());
+        int targetTier = getPlanTier(targetPlan.getPlan().getPlanCode());
+
+        if (targetTier <= currentTier) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        int amount = targetPlan.getPrice() - order.getStylistPlan().getPrice();
+
+        if (amount <= 0) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        String orderId = "UPGRADE-" + UUID.randomUUID()
+                .toString()
+                .replace("-", "");
+
+        OrderUpgradePayment upgradePayment = new OrderUpgradePayment(
+                order,
+                targetPlan,
+                orderId,
+                amount
+        );
+
+        orderUpgradePaymentRepository.save(upgradePayment);
+
+        String orderName = order.getStylistPlan().getPlan().getPlanTier()
+                + " → "
+                + targetPlan.getPlan().getPlanTier();
+
+        return new OrderCreateResponseDto(
+                order.getOrderPk(),
+                orderId,
+                orderName,
+                amount
+        );
+    }
+
+    @Override
+    @Transactional
+    public void confirmUpgradePayment(PaymentConfirmRequestDto request) {
+        User user = getLoginUser();
+
+        OrderUpgradePayment upgradePayment = orderUpgradePaymentRepository
+                .findByOrderNumAndOrder_User_UserPk(
+                        request.getOrderId(),
+                        user.getUserPk()
+                )
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (!upgradePayment.getAmount().equals(request.getAmount())) {
+            throw new BusinessException(ErrorCode.PAYMENT_AMOUNT_MISMATCH);
+        }
+
+        if (OrderUpgradePayment.PAYMENT_COMPLETED
+                == upgradePayment.getPaymentStatus()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        Order order = upgradePayment.getOrder();
+
+        if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
+                || !Byte.valueOf(Order.PROCESS_IN_PROGRESS).equals(order.getProcessStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        StylistPlan targetPlan = upgradePayment.getStylistPlan();
+
+        if (!order.getStylist().getStylistPk()
+                .equals(targetPlan.getStylist().getStylistPk())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        int currentTier = getPlanTier(order.getStylistPlan().getPlan().getPlanCode());
+        int targetTier = getPlanTier(targetPlan.getPlan().getPlanCode());
+
+        if (targetTier <= currentTier
+                || targetPlan.getPrice() - order.getStylistPlan().getPrice()
+                != upgradePayment.getAmount()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        JsonNode payment = tossPaymentService.confirmPayment(
+                request.getPaymentKey(),
+                request.getOrderId(),
+                request.getAmount()
+        );
+
+        String paymentKey = payment.path("paymentKey").asText();
+        String paymentMethod = payment.path("method").asText();
+        String approvedAtValue = payment.path("approvedAt").asText();
+
+        if (paymentKey.isBlank()
+                || paymentMethod.isBlank()
+                || approvedAtValue.isBlank()) {
+            throw new BusinessException(ErrorCode.TOSS_PAYMENT_FAILED);
+        }
+
+        Instant approvedAt = OffsetDateTime.parse(approvedAtValue).toInstant();
+
+        upgradePayment.completePayment(
+                paymentKey,
+                paymentMethod,
+                approvedAt
+        );
+
+        order.upgradePlan(targetPlan);
+    }
+
+    private int getPlanTier(String planCode) {
+        return switch (planCode) {
+            case "BRONZE" -> 1;
+            case "SILVER" -> 2;
+            case "GOLD" -> 3;
+            default -> throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        };
     }
 
     private User getLoginUser() {

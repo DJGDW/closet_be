@@ -48,7 +48,8 @@ public class StylistMapper {
             List<StylistStyleType> stylistStyleTypes,
             List<StylistPlan> stylistPlans,
             Long postCount,
-            Long followerCount
+            Long followerCount,
+            Long reviewCount
     ) {
         List<StylistDetailResponseDto.StyleTypeDto> styleTypes =
                 stylistStyleTypes.stream()
@@ -79,7 +80,8 @@ public class StylistMapper {
                 styleTypes,
                 plans,
                 postCount,
-                followerCount
+                followerCount,
+                reviewCount
         );
     }
 }
