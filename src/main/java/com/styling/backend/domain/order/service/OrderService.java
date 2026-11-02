@@ -25,4 +25,13 @@ public interface OrderService {
     void completeOrder(Long orderPk);
 
     List<OrderListResponseDto> getOrderList();
+
+    OrderCreateResponseDto createUpgradePayment(
+            Long orderPk,
+            Long stylistPlanPk
+    );
+
+    void confirmUpgradePayment(
+            PaymentConfirmRequestDto request
+    );
 }

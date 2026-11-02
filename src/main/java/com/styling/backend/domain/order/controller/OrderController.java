@@ -62,4 +62,26 @@ public class OrderController {
     public List<OrderListResponseDto> getOrderList() {
         return orderService.getOrderList();
     }
+
+    @Operation(summary = "플랜 업그레이드 결제 생성", description = "기존 주문의 상위 플랜 업그레이드를 위한 추가 결제 정보를 생성합니다.")
+    @PostMapping("/{orderPk}/upgrade")
+    @ResponseStatus(HttpStatus.CREATED)
+    public OrderCreateResponseDto createUpgradePayment(
+            @PathVariable Long orderPk,
+            @Valid @RequestBody OrderCreateRequestDto request
+    ) {
+        return orderService.createUpgradePayment(
+                orderPk,
+                request.getStylistPlanPk()
+        );
+    }
+
+    @Operation(summary = "플랜 업그레이드 결제 승인", description = "추가 결제를 승인하고 기존 주문의 플랜을 변경합니다.")
+    @PostMapping("/upgrade/payment/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmUpgradePayment(
+            @Valid @RequestBody PaymentConfirmRequestDto request
+    ) {
+        orderService.confirmUpgradePayment(request);
+    }
 }

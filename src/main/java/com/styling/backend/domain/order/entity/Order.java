@@ -107,6 +107,10 @@ public class Order {
         this.orderFinished = Instant.now();
     }
 
+    public void upgradePlan(StylistPlan stylistPlan) {
+        this.stylistPlan = stylistPlan;
+    }
+
     public void cancelPayment(String cancelReason) {
         this.cancelReason = cancelReason;
         this.cancelledAt = Instant.now();
