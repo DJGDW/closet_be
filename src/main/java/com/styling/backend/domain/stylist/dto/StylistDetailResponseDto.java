@@ -19,6 +19,7 @@ public class StylistDetailResponseDto {
     private List<PlanDto> plans;
     private Long postCount;
     private Long followerCount;
+    private Long reviewCount;
 
     @Getter
     @AllArgsConstructor

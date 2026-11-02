@@ -44,4 +44,8 @@ public class Stylist {
         this.introduction = introduction;
         this.location = location;
     }
+
+    public void updateRating(BigDecimal rating) {
+        this.rating = rating;
+    }
 }
