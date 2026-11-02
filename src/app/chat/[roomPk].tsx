@@ -17,7 +17,7 @@ import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 
 const PURPLE = "#8B5CF6";
-const API_BASE_URL = "http://localhost:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 type ChatMessage = {
   msgPk: number;

@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://localhost:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 type PostDetail = {
   profileImage: string | null;
@@ -27,6 +27,11 @@ type PostDetail = {
   styleName: string;
   hashtags: string[];
   ratioType: string;
+};
+
+type ReactionCount = {
+  likeCount: number;
+  dislikeCount: number;
 };
 
 export default function PostDetailScreen() {
@@ -40,6 +45,59 @@ export default function PostDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
+  // 현재 화면에서 관리하는 좋아요 상태
+  const [isLiked, setIsLiked] = useState(false);
+  const [likeLoading, setLikeLoading] = useState(false);
+
+  const getAccessToken = async (): Promise<string | null> => {
+    if (Platform.OS === "web") {
+      return localStorage.getItem("accessToken");
+    }
+
+    return await SecureStore.getItemAsync("accessToken");
+  };
+
+  // 게시물 좋아요 개수 조회
+  const fetchReactionCount = useCallback(async () => {
+    if (!postPk) return;
+
+    const token = await getAccessToken();
+
+    const headers: Record<string, string> = {
+      Accept: "application/json",
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(
+      `${API_BASE_URL}/post/${encodeURIComponent(postPk)}/reaction`,
+      {
+        method: "GET",
+        headers,
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `좋아요 개수 조회에 실패했습니다. (HTTP ${response.status})`
+      );
+    }
+
+    const result: ReactionCount = await response.json();
+
+    setPost((current) =>
+      current
+        ? {
+            ...current,
+            likeCount: Number(result.likeCount ?? 0),
+          }
+        : current
+    );
+  }, [postPk]);
+
+  // 게시물 상세 정보 조회
   const fetchPostDetail = useCallback(async () => {
     if (!postPk) {
       setErrorMessage("게시물 번호를 확인할 수 없습니다.");
@@ -51,13 +109,7 @@ export default function PostDetailScreen() {
     try {
       setErrorMessage("");
 
-      let token: string | null;
-
-      if (Platform.OS === "web") {
-        token = localStorage.getItem("accessToken");
-      } else {
-        token = await SecureStore.getItemAsync("accessToken");
-      }
+      const token = await getAccessToken();
 
       const headers: Record<string, string> = {
         Accept: "application/json",
@@ -72,13 +124,13 @@ export default function PostDetailScreen() {
         {
           method: "GET",
           headers,
-        },
+        }
       );
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           throw new Error(
-            "게시물을 조회할 권한이 없습니다. 로그인을 확인해주세요.",
+            "게시물을 조회할 권한이 없습니다. 로그인을 확인해주세요."
           );
         }
 
@@ -87,13 +139,12 @@ export default function PostDetailScreen() {
         }
 
         throw new Error(
-          `게시물 조회에 실패했습니다. (HTTP ${response.status})`,
+          `게시물 조회에 실패했습니다. (HTTP ${response.status})`
         );
       }
 
       const result = await response.json();
 
-      // API가 객체 또는 data 안에 객체를 반환하는 경우 모두 처리
       const detail: PostDetail = result.data ?? result;
 
       if (!detail || typeof detail.imageUrl !== "string") {
@@ -109,6 +160,13 @@ export default function PostDetailScreen() {
         hashtags: Array.isArray(detail.hashtags) ? detail.hashtags : [],
         ratioType: detail.ratioType ?? "",
       });
+
+      // 상세 정보 조회 후 실제 좋아요 개수 조회
+      try {
+        await fetchReactionCount();
+      } catch (reactionError) {
+        console.error("좋아요 개수 조회 오류:", reactionError);
+      }
     } catch (error) {
       console.error("게시물 상세 조회 오류:", error);
 
@@ -116,13 +174,13 @@ export default function PostDetailScreen() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "게시물을 불러오지 못했습니다.",
+          : "게시물을 불러오지 못했습니다."
       );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [postPk]);
+  }, [postPk, fetchReactionCount]);
 
   useEffect(() => {
     fetchPostDetail();
@@ -133,11 +191,91 @@ export default function PostDetailScreen() {
     fetchPostDetail();
   };
 
+  // 좋아요 토글
+  const handleLikePress = async () => {
+    if (!post || likeLoading || !postPk) return;
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      Alert.alert("로그인 필요", "좋아요 기능은 로그인 후 이용할 수 있습니다.");
+      return;
+    }
+
+    const previousLiked = isLiked;
+    const previousCount = post.likeCount;
+    const nextLiked = !previousLiked;
+
+    // 화면을 먼저 업데이트
+    setIsLiked(nextLiked);
+    setPost((current) =>
+      current
+        ? {
+            ...current,
+            likeCount: Math.max(
+              0,
+              current.likeCount + (nextLiked ? 1 : -1)
+            ),
+          }
+        : current
+    );
+
+    setLikeLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/post/${encodeURIComponent(postPk)}/reaction`,
+        {
+          method: "PUT",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            reactionType: 0,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `좋아요 처리에 실패했습니다. (HTTP ${response.status})`
+        );
+      }
+
+      // 서버에서 최종 좋아요 개수를 다시 가져옴
+      await fetchReactionCount();
+    } catch (error) {
+      console.error("좋아요 처리 오류:", error);
+
+      // 실패하면 기존 화면 상태로 복구
+      setIsLiked(previousLiked);
+      setPost((current) =>
+        current
+          ? {
+              ...current,
+              likeCount: previousCount,
+            }
+          : current
+      );
+
+      Alert.alert(
+        "좋아요 처리 실패",
+        error instanceof Error
+          ? error.message
+          : "잠시 후 다시 시도해주세요."
+      );
+    } finally {
+      setLikeLoading(false);
+    }
+  };
+
   const handleProfilePress = () => {
     if (!stylistPk) {
       Alert.alert(
         "스타일리스트 정보",
-        "스타일리스트 번호가 전달되지 않았습니다.",
+        "스타일리스트 번호가 전달되지 않았습니다."
       );
       return;
     }
@@ -258,12 +396,28 @@ export default function PostDetailScreen() {
                 </View>
               </Pressable>
 
-              <View style={styles.likeArea} pointerEvents="none">
-                <Text style={styles.heartIcon}>♥</Text>
+              <Pressable
+                style={styles.likeArea}
+                onPress={handleLikePress}
+                disabled={likeLoading}
+                accessibilityRole="button"
+                accessibilityLabel={
+                  isLiked ? "좋아요 취소" : "좋아요"
+                }
+              >
+                <Text
+                  style={[
+                    styles.heartIcon,
+                    isLiked && styles.heartIconActive,
+                  ]}
+                >
+                  ♥
+                </Text>
+
                 <Text style={styles.likeCount}>
                   {post.likeCount.toLocaleString("ko-KR")}
                 </Text>
-              </View>
+              </Pressable>
             </View>
 
             <View style={styles.detailPanel}>
@@ -271,13 +425,13 @@ export default function PostDetailScreen() {
                 <Text style={styles.sectionTitle}>스타일</Text>
 
                 <View style={styles.tagList}>
-                  {post.styleName.trim() ? (
-                    renderTag(post.styleName, 0)
-                  ) : (
-                    <Text style={styles.emptyText}>
-                      등록된 스타일이 없습니다.
-                    </Text>
-                  )}
+                  {post.styleName.trim()
+                    ? renderTag(post.styleName, 0)
+                    : (
+                      <Text style={styles.emptyText}>
+                        등록된 스타일이 없습니다.
+                      </Text>
+                    )}
                 </View>
               </View>
 
@@ -285,13 +439,13 @@ export default function PostDetailScreen() {
                 <Text style={styles.sectionTitle}>체형 보완</Text>
 
                 <View style={styles.tagList}>
-                  {post.ratioType.trim() ? (
-                    renderTag(post.ratioType, 0)
-                  ) : (
-                    <Text style={styles.emptyText}>
-                      등록된 체형 정보가 없습니다.
-                    </Text>
-                  )}
+                  {post.ratioType.trim()
+                    ? renderTag(post.ratioType, 0)
+                    : (
+                      <Text style={styles.emptyText}>
+                        등록된 체형 정보가 없습니다.
+                      </Text>
+                    )}
                 </View>
               </View>
 
@@ -303,8 +457,8 @@ export default function PostDetailScreen() {
                     post.hashtags.map((hashtag, index) =>
                       renderTag(
                         hashtag.startsWith("#") ? hashtag : `#${hashtag}`,
-                        index,
-                      ),
+                        index
+                      )
                     )
                   ) : (
                     <Text style={styles.emptyText}>
@@ -437,6 +591,9 @@ const styles = StyleSheet.create({
   heartIcon: {
     color: "#FFFFFF",
     fontSize: 14,
+  },
+  heartIconActive: {
+    color: "#FF4D6D",
   },
   likeCount: {
     color: "#FFFFFF",
