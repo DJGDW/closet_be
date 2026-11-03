@@ -87,6 +87,24 @@ public class ChatRoom {
         return room;
     }
 
+    public void convertToPaymentRoom(Order order) {
+        if (this.roomType != TYPE_INQUIRY
+                || this.roomStatus != STATUS_ACTIVE
+                || this.order != null) {
+            throw new IllegalStateException("활성 상태의 문의 채팅방만 결제 채팅방으로 전환할 수 있습니다.");
+        }
+
+        if (!this.user.getUserPk().equals(order.getUser().getUserPk())
+                || !this.stylist.getStylistPk().equals(order.getStylist().getStylistPk())) {
+            throw new IllegalStateException("채팅방과 주문의 사용자가 일치하지 않습니다.");
+        }
+
+        this.order = order;
+        this.roomType = TYPE_PAYMENT;
+        this.expiresAt = null;
+        this.deleteAfter = null;
+    }
+
     public void close() {
         if (this.roomStatus != STATUS_ACTIVE) {
             throw new IllegalStateException("활성 상태의 채팅방만 종료할 수 있습니다.");

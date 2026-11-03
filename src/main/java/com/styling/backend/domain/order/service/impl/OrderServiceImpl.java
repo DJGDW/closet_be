@@ -132,11 +132,22 @@ public class OrderServiceImpl implements OrderService {
 
         order.completePayment(paymentKey, paymentMethod, approvedAt);
 
-        ChatRoom chatRoom = new ChatRoom(
-                order.getUser(),
-                order.getStylist(),
-                order
-        );
+        ChatRoom chatRoom = chatRoomRepository
+                .findFirstByUser_UserPkAndStylist_StylistPkAndRoomTypeAndRoomStatus(
+                        order.getUser().getUserPk(),
+                        order.getStylist().getStylistPk(),
+                        ChatRoom.TYPE_INQUIRY,
+                        ChatRoom.STATUS_ACTIVE
+                )
+                .map(room -> {
+                    room.convertToPaymentRoom(order);
+                    return room;
+                })
+                .orElseGet(() -> new ChatRoom(
+                        order.getUser(),
+                        order.getStylist(),
+                        order
+                ));
 
         chatRoomRepository.save(chatRoom);
 
