@@ -49,10 +49,18 @@ public class UserBody {
     @Column(name = "leg")
     private Integer leg;
 
-    public UserBody(User user, Integer tall, BigDecimal weight,
-                    Integer chestSize, Integer waistSize,
-                    Integer shoulderWidth, Integer hips,
-                    Integer thigh, Integer calf, Integer leg) {
+    public UserBody(
+            User user,
+            Integer tall,
+            BigDecimal weight,
+            Integer chestSize,
+            Integer waistSize,
+            Integer shoulderWidth,
+            Integer hips,
+            Integer thigh,
+            Integer calf,
+            Integer leg
+    ) {
         this.user = user;
         this.tall = tall;
         this.weight = weight;
@@ -63,5 +71,27 @@ public class UserBody {
         this.thigh = thigh;
         this.calf = calf;
         this.leg = leg;
+    }
+
+    public void updateInfo(
+            Integer tall,
+            BigDecimal weight,
+            Integer chestSize,
+            Integer waistSize,
+            Integer shoulderWidth,
+            Integer hips,
+            Integer thigh,
+            Integer calf,
+            Integer leg
+    ) {
+        if (tall != null) this.tall = tall;
+        if (weight != null) this.weight = weight;
+        if (chestSize != null) this.chestSize = chestSize;
+        if (waistSize != null) this.waistSize = waistSize;
+        if (shoulderWidth != null) this.shoulderWidth = shoulderWidth;
+        if (hips != null) this.hips = hips;
+        if (thigh != null) this.thigh = thigh;
+        if (calf != null) this.calf = calf;
+        if (leg != null) this.leg = leg;
     }
 }

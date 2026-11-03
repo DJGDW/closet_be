@@ -1,10 +1,13 @@
 package com.styling.backend.domain.user.controller;
 
+import com.styling.backend.domain.global.image.ImageService;
+import com.styling.backend.domain.user.dto.UserBodyUpdateRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginResponseDto;
+import com.styling.backend.domain.user.dto.UserPasswordUpdateRequestDto;
 import com.styling.backend.domain.user.dto.UserSignupRequestDto;
+import com.styling.backend.domain.user.dto.UserUpdateRequestDto;
 import com.styling.backend.domain.user.service.UserService;
-import com.styling.backend.domain.global.image.ImageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -83,5 +86,58 @@ public class UserController {
         return ResponseEntity.ok(
                 userService.checkNicknameDuplicate(nickname)
         );
+    }
+
+    @Operation(summary = "개인정보 부분 수정")
+    @PatchMapping(
+            value = "/update",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public ResponseEntity<Void> updateInfo(
+            @Parameter(
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(
+                                    implementation = UserUpdateRequestDto.class
+                            )
+                    )
+            )
+            @Valid @RequestPart("request") UserUpdateRequestDto request,
+
+            @RequestPart(value = "profileImage", required = false)
+            MultipartFile profileImage
+    ) {
+        String profilePic = null;
+
+        if (profileImage != null && !profileImage.isEmpty()) {
+            profilePic = imageService.uploadImage(
+                    profileImage,
+                    "stylist/user-profile"
+            );
+        }
+
+        userService.updateInfo(request, profilePic);
+
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "비밀번호 변경")
+    @PatchMapping("/password")
+    public ResponseEntity<Void> updatePassword(
+            @Valid @RequestBody UserPasswordUpdateRequestDto request
+    ) {
+        userService.updatePassword(request);
+
+        return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "체형 정보 부분 수정")
+    @PatchMapping("/body")
+    public ResponseEntity<Void> updateBody(
+            @Valid @RequestBody UserBodyUpdateRequestDto request
+    ) {
+        userService.updateBody(request);
+
+        return ResponseEntity.ok().build();
     }
 }

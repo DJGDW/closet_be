@@ -56,9 +56,17 @@ public class User {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    public User(String userName, String userId, String userPw,
-                String phoneNumber, LocalDate birthDate, String email,
-                String nickname, Integer gender, String profilePic) {
+    public User(
+            String userName,
+            String userId,
+            String userPw,
+            String phoneNumber,
+            LocalDate birthDate,
+            String email,
+            String nickname,
+            Integer gender,
+            String profilePic
+    ) {
         this.userName = userName;
         this.userId = userId;
         this.userPw = userPw;
@@ -76,6 +84,7 @@ public class User {
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
+
         if (this.role == null) {
             this.role = DEFAULT_ROLE;
         }
@@ -88,5 +97,47 @@ public class User {
 
     public void changeRole(Integer role) {
         this.role = role;
+    }
+
+    public void updateInfo(
+            String userName,
+            String phoneNumber,
+            LocalDate birthDate,
+            String email,
+            String nickname,
+            Integer gender,
+            String profilePic
+    ) {
+        if (userName != null) {
+            this.userName = userName;
+        }
+
+        if (phoneNumber != null) {
+            this.phoneNumber = phoneNumber;
+        }
+
+        if (birthDate != null) {
+            this.birthDate = birthDate;
+        }
+
+        if (email != null) {
+            this.email = email;
+        }
+
+        if (nickname != null) {
+            this.nickname = nickname;
+        }
+
+        if (gender != null) {
+            this.gender = gender;
+        }
+
+        if (profilePic != null) {
+            this.profilePic = profilePic;
+        }
+    }
+
+    public void changePassword(String userPw) {
+        this.userPw = userPw;
     }
 }
