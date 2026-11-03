@@ -1,7 +1,7 @@
-
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
+import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import {
   ActivityIndicator,
   Image,
@@ -11,11 +11,13 @@ import {
   StatusBar,
   Text,
   View,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
+const TOSS_CLIENT_KEY = "test_ck_GjLJoQ1aVZ9w1kO6bZ7g3w6KYe2R";
 const PURPLE = "#51458C";
 
 const PAYMENT_METHODS = [
@@ -73,17 +75,16 @@ export default function PaymentScreen() {
     ? params.planPk[0]
     : params.planPk;
 
-  const [stylist, setStylist] =
-    useState<StylistDetailResponse | null>(null);
+  const [stylist, setStylist] = useState<StylistDetailResponse | null>(null);
 
-  const [selectedService, setSelectedService] =
-    useState<PlanDto | null>(null);
+  const [selectedService, setSelectedService] = useState<PlanDto | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [agreed, setAgreed] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [paying, setPaying] = useState(false);
 
   // 실제 스타일리스트 및 서비스 정보 조회
   const loadPaymentInfo = useCallback(async () => {
@@ -103,25 +104,20 @@ export default function PaymentScreen() {
         throw new Error("로그인이 필요합니다. 다시 로그인해주세요.");
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/stylist/${id}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/stylist/${id}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (response.status === 401 || response.status === 403) {
         throw new Error("로그인 인증이 만료되었어요. 다시 로그인해주세요.");
       }
 
       if (!response.ok) {
-        throw new Error(
-          `스타일리스트 정보 조회 실패 (${response.status})`
-        );
+        throw new Error(`스타일리스트 정보 조회 실패 (${response.status})`);
       }
 
       const result = await response.json();
@@ -130,7 +126,7 @@ export default function PaymentScreen() {
         result.data ?? result.result ?? result;
 
       const plan = (detail.plans ?? []).find(
-        (item) => String(item.planPk) === String(planPk)
+        (item) => String(item.planPk) === String(planPk),
       );
 
       if (!plan) {
@@ -145,7 +141,7 @@ export default function PaymentScreen() {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "결제 정보를 불러오지 못했습니다."
+          : "결제 정보를 불러오지 못했습니다.",
       );
     } finally {
       setLoading(false);
@@ -196,11 +192,7 @@ export default function PaymentScreen() {
             paddingHorizontal: 24,
           }}
         >
-          <Ionicons
-            name="alert-circle-outline"
-            size={38}
-            color="#999999"
-          />
+          <Ionicons name="alert-circle-outline" size={38} color="#999999" />
 
           <Text
             style={{
@@ -223,9 +215,7 @@ export default function PaymentScreen() {
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: PURPLE, fontSize: 12 }}>
-              다시 시도
-            </Text>
+            <Text style={{ color: PURPLE, fontSize: 12 }}>다시 시도</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -233,6 +223,89 @@ export default function PaymentScreen() {
   }
 
   const price = Number(selectedService.price) || 0;
+
+  const handlePayment = async () => {
+    if (!agreed || paying) return;
+
+    if (paymentMethod !== "card") {
+      Alert.alert(
+        "결제 수단 안내",
+        "현재 테스트 결제는 신용카드만 지원합니다. 신용카드를 선택해 주세요.",
+      );
+      return;
+    }
+
+    if (!price || price <= 0) {
+      Alert.alert(
+        "결제 금액 오류",
+        "서비스 결제 금액이 0원입니다. 플랜 정보를 확인해 주세요.",
+      );
+      return;
+    }
+
+    try {
+      setPaying(true);
+      const token = await getAccessToken();
+      if (!token) throw new Error("로그인이 필요합니다. 다시 로그인해주세요.");
+
+      // 1) 백엔드에서 주문 생성
+      const orderResponse = await fetch(`${API_BASE_URL}/order`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ stylistPlanPk: Number(planPk) }),
+      });
+
+      const orderResult = await orderResponse.json().catch(() => null);
+      if (!orderResponse.ok) {
+        throw new Error(
+          orderResult?.message || `주문 생성 실패 (${orderResponse.status})`,
+        );
+      }
+
+      const order = orderResult?.data ?? orderResult?.result ?? orderResult;
+      const orderId = String(order?.orderId ?? "");
+      const amount = Number(order?.amount);
+
+      if (!orderId || !Number.isFinite(amount) || amount <= 0) {
+        console.error("주문 응답 확인 필요:", orderResult);
+        throw new Error(
+          "서버에서 주문번호 또는 결제 금액을 올바르게 받지 못했습니다.",
+        );
+      }
+
+      // 2) Toss 결제창 호출
+      const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
+      const payment = tossPayments.payment({
+        customerKey: `styLink_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
+      });
+
+      const successUrl = `${window.location.origin}/stylist/${id}/payment-success`;
+      const failUrl = `${window.location.origin}/stylist/${id}/payment-success`;
+
+      await payment.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: amount },
+        orderId,
+        orderName: String(
+          order?.orderName ||
+            `${stylist.nickname} ${selectedService.planTier} 스타일링 서비스`,
+        ),
+        successUrl,
+        failUrl,
+      });
+    } catch (error) {
+      console.error("토스 결제 실행 오류:", error);
+      Alert.alert(
+        "결제 실행 실패",
+        error instanceof Error ? error.message : "결제창을 열지 못했습니다.",
+      );
+    } finally {
+      setPaying(false);
+    }
+  };
 
   return (
     <SafeAreaView
@@ -398,9 +471,7 @@ export default function PaymentScreen() {
               alignItems: "center",
             }}
           >
-            <Text style={{ fontSize: 12, color: "#55515D" }}>
-              서비스 가격
-            </Text>
+            <Text style={{ fontSize: 12, color: "#55515D" }}>서비스 가격</Text>
 
             <Text style={{ fontSize: 12, color: "#292633" }}>
               ₩{price.toLocaleString("ko-KR")}
@@ -564,30 +635,23 @@ export default function PaymentScreen() {
         }}
       >
         <Pressable
-  onPress={() => {
-    if (!agreed) return;
-
-    router.push({
-      pathname: "/stylist/[id]/payment-success",
-      params: {
-        id: String(id),
-        planPk: String(planPk),
-      },
-    });
-  }}
-  style={{
-    height: 52,
-    borderRadius: 9,
-    backgroundColor: PURPLE,
-    alignItems: "center",
-    justifyContent: "center",
-    opacity: agreed ? 1 : 0.75,
-  }}
->
-  <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "800" }}>
-    ₩{price.toLocaleString("ko-KR")} 결제하기
-  </Text>
-</Pressable>
+          onPress={handlePayment}
+          disabled={!agreed || paying}
+          style={{
+            height: 52,
+            borderRadius: 9,
+            backgroundColor: PURPLE,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: agreed && !paying ? 1 : 0.75,
+          }}
+        >
+          <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "800" }}>
+            {paying
+              ? "결제창을 여는 중..."
+              : `₩${price.toLocaleString("ko-KR")} 결제하기`}
+          </Text>
+        </Pressable>
 
         <Text
           style={{

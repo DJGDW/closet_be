@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import styles from "../styles/stylist-register.styles";
 
-const API_BASE_URL = "http://localhost:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 const LOCATIONS = [
   { id: 1, name: "서울특별시" },

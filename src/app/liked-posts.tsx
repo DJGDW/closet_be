@@ -1,4 +1,3 @@
-
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -18,7 +17,7 @@ import { router } from "expo-router";
 
 import { styles } from "../styles/feed.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type LikedPost = {
   postPk: number;
@@ -71,7 +70,7 @@ export default function LikedPostsScreen() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.status === 401 || response.status === 403) {
@@ -84,8 +83,7 @@ export default function LikedPostsScreen() {
         throw new Error(`좋아요 게시물 요청 실패: HTTP ${response.status}`);
       }
 
-      const result: LikedPostsResponse | LikedPost[] =
-        await response.json();
+      const result: LikedPostsResponse | LikedPost[] = await response.json();
 
       let postList: LikedPost[] = [];
 
@@ -110,14 +108,14 @@ export default function LikedPostsScreen() {
           post &&
           post.postPk != null &&
           typeof post.imageUrl === "string" &&
-          post.imageUrl.length > 0
+          post.imageUrl.length > 0,
       );
 
       setPosts(validPosts);
     } catch (error) {
       console.error("좋아요 게시물 불러오기 오류:", error);
       setErrorMessage(
-        "좋아요 게시물을 불러오지 못했어요. 잠시 후 다시 시도해주세요."
+        "좋아요 게시물을 불러오지 못했어요. 잠시 후 다시 시도해주세요.",
       );
     } finally {
       setLoading(false);
@@ -201,10 +199,7 @@ export default function LikedPostsScreen() {
           contentContainerStyle={styles.feedContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
         >
           {loading ? (
@@ -266,10 +261,7 @@ export default function LikedPostsScreen() {
           ) : (
             <View style={styles.feedGrid}>
               {posts.map((post) => (
-                <View
-                  key={post.postPk}
-                  style={styles.postCard}
-                >
+                <View key={post.postPk} style={styles.postCard}>
                   {/* 게시물 이미지 */}
                   <Pressable
                     onPress={() => handlePostPress(post)}

@@ -1,4 +1,3 @@
-
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -22,7 +21,7 @@ import PlusIcon from "../../assets/icons/plusicon.svg";
 
 import { styles } from "../styles/feed.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type FeedPost = {
   postPk: number;
@@ -75,25 +74,20 @@ export default function FeedScreen() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (response.status === 401 || response.status === 403) {
         setPosts([]);
-        setErrorMessage(
-          "로그인 인증이 만료되었어요. 다시 로그인해주세요."
-        );
+        setErrorMessage("로그인 인증이 만료되었어요. 다시 로그인해주세요.");
         return;
       }
 
       if (!response.ok) {
-        throw new Error(
-          `추천 피드 요청 실패: HTTP ${response.status}`
-        );
+        throw new Error(`추천 피드 요청 실패: HTTP ${response.status}`);
       }
 
-      const result: FeedPost[] | RecommendedResponse =
-        await response.json();
+      const result: FeedPost[] | RecommendedResponse = await response.json();
 
       const postList: FeedPost[] = Array.isArray(result)
         ? result
@@ -110,14 +104,14 @@ export default function FeedScreen() {
           post &&
           post.postPk != null &&
           typeof post.imageUrl === "string" &&
-          post.imageUrl.length > 0
+          post.imageUrl.length > 0,
       );
 
       setPosts(validPosts);
     } catch (error) {
       console.error("추천 피드 불러오기 오류:", error);
       setErrorMessage(
-        "피드를 불러오지 못했어요. 서버 연결을 확인하고 다시 시도해주세요."
+        "피드를 불러오지 못했어요. 서버 연결을 확인하고 다시 시도해주세요.",
       );
     } finally {
       setLoading(false);
@@ -148,10 +142,7 @@ export default function FeedScreen() {
   // 스타일리스트 정보 클릭 → 기존 스타일리스트 소개 페이지
   const handleStylistPress = (post: FeedPost) => {
     if (post.stylistPk == null) {
-      Alert.alert(
-        "안내",
-        "스타일리스트 정보를 확인할 수 없습니다."
-      );
+      Alert.alert("안내", "스타일리스트 정보를 확인할 수 없습니다.");
       return;
     }
 
@@ -165,10 +156,7 @@ export default function FeedScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar
-        barStyle="dark-content"
-      
-      />
+      <StatusBar barStyle="dark-content" />
 
       <View style={styles.appFrame}>
         <View style={styles.header}>
@@ -192,12 +180,7 @@ export default function FeedScreen() {
 
             <Pressable
               style={styles.headerIconButton}
-              onPress={() =>
-                Alert.alert(
-                  "알림",
-                  "알림 화면은 준비 중이에요."
-                )
-              }
+              onPress={() => Alert.alert("알림", "알림 화면은 준비 중이에요.")}
               accessibilityRole="button"
               accessibilityLabel="알림"
             >
@@ -211,10 +194,7 @@ export default function FeedScreen() {
           contentContainerStyle={styles.feedContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
           }
         >
           {loading ? (
@@ -224,10 +204,7 @@ export default function FeedScreen() {
                 alignItems: "center",
               }}
             >
-              <ActivityIndicator
-                size="large"
-                color="#4D458B"
-              />
+              <ActivityIndicator size="large" color="#4D458B" />
               <Text
                 style={{
                   marginTop: 12,
@@ -288,10 +265,7 @@ export default function FeedScreen() {
           ) : (
             <View style={styles.feedGrid}>
               {posts.map((post) => (
-                <View
-                  key={post.postPk}
-                  style={styles.postCard}
-                >
+                <View key={post.postPk} style={styles.postCard}>
                   {/* 이미지 영역: 게시물 상세 페이지 */}
                   <Pressable
                     onPress={() => handlePostPress(post)}
@@ -359,18 +333,11 @@ export default function FeedScreen() {
                     </View>
 
                     <View style={styles.stylistTextArea}>
-                      <Text
-                        style={styles.stylistName}
-                        numberOfLines={1}
-                      >
-                        {post.stylistNickname ||
-                          "스타일리스트"}
+                      <Text style={styles.stylistName} numberOfLines={1}>
+                        {post.stylistNickname || "스타일리스트"}
                       </Text>
 
-                      <Text
-                        style={styles.stylistStyle}
-                        numberOfLines={1}
-                      >
+                      <Text style={styles.stylistStyle} numberOfLines={1}>
                         {post.styleName || "스타일"}
                       </Text>
                     </View>

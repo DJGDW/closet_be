@@ -1,4 +1,3 @@
-
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -16,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type StyleTypeDto = {
   typePk: number;
@@ -80,8 +79,7 @@ export default function StylistProfileScreen() {
   const params = useLocalSearchParams<{ id: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
-  const [stylist, setStylist] =
-    useState<StylistDetailResponse | null>(null);
+  const [stylist, setStylist] = useState<StylistDetailResponse | null>(null);
 
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState("");
@@ -113,28 +111,22 @@ export default function StylistProfileScreen() {
         throw new Error("로그인이 필요합니다. 다시 로그인해주세요.");
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/stylist/${id}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/stylist/${id}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(
-          `스타일리스트 상세정보 조회 실패 (${response.status})`
-        );
+        throw new Error(`스타일리스트 상세정보 조회 실패 (${response.status})`);
       }
 
       const data = await response.json();
 
       // API가 직접 DTO를 반환하는 경우
-      const detail: StylistDetailResponse =
-        data.data ?? data.result ?? data;
+      const detail: StylistDetailResponse = data.data ?? data.result ?? data;
 
       setStylist(detail);
 
@@ -150,7 +142,7 @@ export default function StylistProfileScreen() {
       setDetailError(
         error instanceof Error
           ? error.message
-          : "스타일리스트 정보를 불러오지 못했습니다."
+          : "스타일리스트 정보를 불러오지 못했습니다.",
       );
     } finally {
       setDetailLoading(false);
@@ -184,7 +176,7 @@ export default function StylistProfileScreen() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -207,7 +199,7 @@ export default function StylistProfileScreen() {
         (post) =>
           String(post.stylistPk) === String(id) &&
           typeof post.imageUrl === "string" &&
-          post.imageUrl.trim().length > 0
+          post.imageUrl.trim().length > 0,
       );
 
       setPortfolios(matchedPosts);
@@ -217,7 +209,7 @@ export default function StylistProfileScreen() {
       setPortfolioError(
         error instanceof Error
           ? error.message
-          : "포트폴리오를 불러오지 못했습니다."
+          : "포트폴리오를 불러오지 못했습니다.",
       );
     } finally {
       setPortfolioLoading(false);
@@ -225,131 +217,131 @@ export default function StylistProfileScreen() {
   }, [id]);
 
   // 현재 스타일리스트 팔로우 여부 확인
-const loadFollowStatus = useCallback(async () => {
-  if (!id) return;
+  const loadFollowStatus = useCallback(async () => {
+    if (!id) return;
 
-  try {
-    const token = await getAccessToken();
+    try {
+      const token = await getAccessToken();
 
-    if (!token) return;
+      if (!token) return;
 
-    const response = await fetch(`${API_BASE_URL}/follow`, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/json",
-      },
-    });
+      const response = await fetch(`${API_BASE_URL}/follow`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`팔로잉 목록 조회 실패 (${response.status})`);
+      if (!response.ok) {
+        throw new Error(`팔로잉 목록 조회 실패 (${response.status})`);
+      }
+
+      const data = await response.json();
+
+      const followings = Array.isArray(data)
+        ? data
+        : (data.data ?? data.result ?? []);
+
+      const following = followings.some(
+        (item: { stylistPk: number | string }) =>
+          String(item.stylistPk) === String(id),
+      );
+
+      setIsFollowing(following);
+    } catch (error) {
+      console.error("팔로우 상태 조회 실패:", error);
     }
+  }, [id]);
 
-    const data = await response.json();
+  // 팔로우 실행
+  const handleFollow = async () => {
+    if (!id || followLoading) return;
 
-    const followings = Array.isArray(data)
-      ? data
-      : data.data ?? data.result ?? [];
+    setFollowLoading(true);
 
-    const following = followings.some(
-      (item: { stylistPk: number | string }) =>
-        String(item.stylistPk) === String(id)
-    );
+    try {
+      const token = await getAccessToken();
 
-    setIsFollowing(following);
-  } catch (error) {
-    console.error("팔로우 상태 조회 실패:", error);
-  }
-}, [id]);
+      if (!token) {
+        throw new Error("로그인이 필요합니다.");
+      }
 
-// 팔로우 실행
-const handleFollow = async () => {
-  if (!id || followLoading) return;
+      const response = await fetch(`${API_BASE_URL}/follow/${id}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-  setFollowLoading(true);
+      if (!response.ok) {
+        throw new Error(`팔로우 실패 (${response.status})`);
+      }
 
-  try {
-    const token = await getAccessToken();
+      setIsFollowing(true);
 
-    if (!token) {
-      throw new Error("로그인이 필요합니다.");
+      setStylist((prev) =>
+        prev
+          ? {
+              ...prev,
+              followerCount: (prev.followerCount ?? 0) + 1,
+            }
+          : prev,
+      );
+    } catch (error) {
+      console.error("팔로우 실패:", error);
+    } finally {
+      setFollowLoading(false);
     }
+  };
 
-    const response = await fetch(`${API_BASE_URL}/follow/${id}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  // 언팔로우 실행
+  const handleUnfollow = async () => {
+    if (!id || followLoading) return;
 
-    if (!response.ok) {
-      throw new Error(`팔로우 실패 (${response.status})`);
+    setFollowLoading(true);
+
+    try {
+      const token = await getAccessToken();
+
+      if (!token) {
+        throw new Error("로그인이 필요합니다.");
+      }
+
+      const response = await fetch(`${API_BASE_URL}/follow/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`언팔로우 실패 (${response.status})`);
+      }
+
+      setIsFollowing(false);
+      setUnfollowModalVisible(false);
+
+      setStylist((prev) =>
+        prev
+          ? {
+              ...prev,
+              followerCount: Math.max(0, (prev.followerCount ?? 0) - 1),
+            }
+          : prev,
+      );
+    } catch (error) {
+      console.error("언팔로우 실패:", error);
+    } finally {
+      setFollowLoading(false);
     }
-
-    setIsFollowing(true);
-
-    setStylist((prev) =>
-      prev
-        ? {
-            ...prev,
-            followerCount: (prev.followerCount ?? 0) + 1,
-          }
-        : prev
-    );
-  } catch (error) {
-    console.error("팔로우 실패:", error);
-  } finally {
-    setFollowLoading(false);
-  }
-};
-
-// 언팔로우 실행
-const handleUnfollow = async () => {
-  if (!id || followLoading) return;
-
-  setFollowLoading(true);
-
-  try {
-    const token = await getAccessToken();
-
-    if (!token) {
-      throw new Error("로그인이 필요합니다.");
-    }
-
-    const response = await fetch(`${API_BASE_URL}/follow/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`언팔로우 실패 (${response.status})`);
-    }
-
-    setIsFollowing(false);
-    setUnfollowModalVisible(false);
-
-    setStylist((prev) =>
-      prev
-        ? {
-            ...prev,
-            followerCount: Math.max(0, (prev.followerCount ?? 0) - 1),
-          }
-        : prev
-    );
-  } catch (error) {
-    console.error("언팔로우 실패:", error);
-  } finally {
-    setFollowLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
-  loadStylistDetail();
-  loadPortfolios();
-  loadFollowStatus();
-}, [loadStylistDetail, loadPortfolios, loadFollowStatus]);
+    loadStylistDetail();
+    loadPortfolios();
+    loadFollowStatus();
+  }, [loadStylistDetail, loadPortfolios, loadFollowStatus]);
 
   const goToPortfolio = () => {
     router.push({
@@ -358,23 +350,23 @@ const handleUnfollow = async () => {
     });
   };
 
- const goToPayment = () => {
-  if (!selectedServiceData || !stylist) return;
+  const goToPayment = () => {
+    if (!selectedServiceData || !stylist) return;
 
-  const selectedPlan = stylist.plans.find(
-    (plan) => plan.planCode === selectedService
-  );
+    const selectedPlan = stylist.plans.find(
+      (plan) => plan.planCode === selectedService,
+    );
 
-  if (!selectedPlan) return;
+    if (!selectedPlan) return;
 
-  router.push({
-    pathname: "/stylist/[id]/payment",
-    params: {
-      id: String(id),
-      planPk: String(selectedPlan.planPk),
-    },
-  });
-};
+    router.push({
+      pathname: "/stylist/[id]/payment",
+      params: {
+        id: String(id),
+        planPk: String(selectedPlan.planPk),
+      },
+    });
+  };
 
   if (detailLoading) {
     return (
@@ -435,29 +427,24 @@ const handleUnfollow = async () => {
               borderRadius: 8,
             }}
           >
-            <Text style={{ color: "#51458C", fontSize: 12 }}>
-              다시 시도
-            </Text>
+            <Text style={{ color: "#51458C", fontSize: 12 }}>다시 시도</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
-  const services: Service[] = (stylist.plans ?? []).map(
-    (plan, index) => ({
-      name: plan.planTier || plan.planCode || `PLAN ${index + 1}`,
-      description: plan.description || "스타일링 서비스",
-      price: typeof plan.price === "number" ? plan.price : 0,
-      color: SERVICE_COLORS[index % SERVICE_COLORS.length],
-    })
-  );
+  const services: Service[] = (stylist.plans ?? []).map((plan, index) => ({
+    name: plan.planTier || plan.planCode || `PLAN ${index + 1}`,
+    description: plan.description || "스타일링 서비스",
+    price: typeof plan.price === "number" ? plan.price : 0,
+    color: SERVICE_COLORS[index % SERVICE_COLORS.length],
+  }));
 
   const selectedServiceData =
     services.find(
       (service, index) =>
-        (stylist.plans[index]?.planCode || service.name) ===
-        selectedService
+        (stylist.plans[index]?.planCode || service.name) === selectedService,
     ) || services[0];
 
   const visiblePortfolios = portfolios.slice(0, 3);
@@ -529,84 +516,84 @@ const handleUnfollow = async () => {
 
         <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
           {/* 이름 */}
-         {/* 이름 + 팔로우 버튼 */}
-<View
-  style={{
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  }}
->
-  <View
-    style={{
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 5,
-      flex: 1,
-    }}
-  >
-    <Text
-      style={{
-        fontSize: 20,
-        fontWeight: "800",
-        color: "#292633",
-      }}
-    >
-      {stylist.nickname}
-    </Text>
+          {/* 이름 + 팔로우 버튼 */}
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5,
+                flex: 1,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 20,
+                  fontWeight: "800",
+                  color: "#292633",
+                }}
+              >
+                {stylist.nickname}
+              </Text>
 
-    <Ionicons name="checkmark-circle" size={17} color="#4A9AC8" />
-  </View>
+              <Ionicons name="checkmark-circle" size={17} color="#4A9AC8" />
+            </View>
 
-  <Pressable
-    disabled={followLoading}
-    onPress={() => {
-      if (isFollowing) {
-        setUnfollowModalVisible(true);
-      } else {
-        handleFollow();
-      }
-    }}
-    style={{
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      minWidth: 88,
-      height: 34,
-      paddingHorizontal: 12,
-      borderRadius: 8,
-      backgroundColor: isFollowing ? "#F1EEFC" : "#51458C",
-    }}
-  >
-    {followLoading ? (
-      <ActivityIndicator
-        size="small"
-        color={isFollowing ? "#51458C" : "#FFFFFF"}
-      />
-    ) : (
-      <>
-        <Text
-          style={{
-            fontSize: 12,
-            fontWeight: "700",
-            color: isFollowing ? "#51458C" : "#FFFFFF",
-          }}
-        >
-          {isFollowing ? "팔로잉" : "팔로우"}
-        </Text>
+            <Pressable
+              disabled={followLoading}
+              onPress={() => {
+                if (isFollowing) {
+                  setUnfollowModalVisible(true);
+                } else {
+                  handleFollow();
+                }
+              }}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "center",
+                minWidth: 88,
+                height: 34,
+                paddingHorizontal: 12,
+                borderRadius: 8,
+                backgroundColor: isFollowing ? "#F1EEFC" : "#51458C",
+              }}
+            >
+              {followLoading ? (
+                <ActivityIndicator
+                  size="small"
+                  color={isFollowing ? "#51458C" : "#FFFFFF"}
+                />
+              ) : (
+                <>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: isFollowing ? "#51458C" : "#FFFFFF",
+                    }}
+                  >
+                    {isFollowing ? "팔로잉" : "팔로우"}
+                  </Text>
 
-        {isFollowing && (
-          <Ionicons
-            name="chevron-down"
-            size={13}
-            color="#51458C"
-            style={{ marginLeft: 3 }}
-          />
-        )}
-      </>
-    )}
-  </Pressable>
-</View>
+                  {isFollowing && (
+                    <Ionicons
+                      name="chevron-down"
+                      size={13}
+                      color="#51458C"
+                      style={{ marginLeft: 3 }}
+                    />
+                  )}
+                </>
+              )}
+            </Pressable>
+          </View>
 
           {/* 스타일 카테고리 */}
           <View
@@ -727,8 +714,7 @@ const handleUnfollow = async () => {
             </Text>
           ) : (
             services.map((service, index) => {
-              const planCode =
-                stylist.plans[index]?.planCode || service.name;
+              const planCode = stylist.plans[index]?.planCode || service.name;
               const isSelected = selectedService === planCode;
 
               return (
@@ -961,90 +947,90 @@ const handleUnfollow = async () => {
         </Pressable>
       </View>
       {/* 언팔로우 확인 모달 */}
-<Modal
-  visible={unfollowModalVisible}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setUnfollowModalVisible(false)}
->
-  <View
-    style={{
-      flex: 1,
-      backgroundColor: "rgba(0,0,0,0.35)",
-      justifyContent: "center",
-      alignItems: "center",
-      paddingHorizontal: 35,
-    }}
-  >
-    <View
-      style={{
-        width: "100%",
-        backgroundColor: "#FFFFFF",
-        borderRadius: 14,
-        padding: 22,
-        alignItems: "center",
-      }}
-    >
-      <Text
-        style={{
-          fontSize: 15,
-          fontWeight: "700",
-          color: "#292633",
-          textAlign: "center",
-          marginBottom: 20,
-        }}
+      <Modal
+        visible={unfollowModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setUnfollowModalVisible(false)}
       >
-        {stylist.nickname}님을 언팔로우할까요?
-      </Text>
-
-      <Pressable
-        disabled={followLoading}
-        onPress={handleUnfollow}
-        style={{
-          width: "100%",
-          height: 42,
-          borderRadius: 8,
-          backgroundColor: "#51458C",
-          alignItems: "center",
-          justifyContent: "center",
-          marginBottom: 9,
-        }}
-      >
-        <Text
+        <View
           style={{
-            color: "#FFFFFF",
-            fontSize: 13,
-            fontWeight: "700",
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.35)",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 35,
           }}
         >
-          언팔로우
-        </Text>
-      </Pressable>
+          <View
+            style={{
+              width: "100%",
+              backgroundColor: "#FFFFFF",
+              borderRadius: 14,
+              padding: 22,
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 15,
+                fontWeight: "700",
+                color: "#292633",
+                textAlign: "center",
+                marginBottom: 20,
+              }}
+            >
+              {stylist.nickname}님을 언팔로우할까요?
+            </Text>
 
-      <Pressable
-        onPress={() => setUnfollowModalVisible(false)}
-        style={{
-          width: "100%",
-          height: 42,
-          borderRadius: 8,
-          backgroundColor: "#F1EEFC",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text
-          style={{
-            color: "#51458C",
-            fontSize: 13,
-            fontWeight: "700",
-          }}
-        >
-          취소
-        </Text>
-      </Pressable>
-    </View>
-  </View>
-</Modal>
+            <Pressable
+              disabled={followLoading}
+              onPress={handleUnfollow}
+              style={{
+                width: "100%",
+                height: 42,
+                borderRadius: 8,
+                backgroundColor: "#51458C",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 9,
+              }}
+            >
+              <Text
+                style={{
+                  color: "#FFFFFF",
+                  fontSize: 13,
+                  fontWeight: "700",
+                }}
+              >
+                언팔로우
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setUnfollowModalVisible(false)}
+              style={{
+                width: "100%",
+                height: 42,
+                borderRadius: 8,
+                backgroundColor: "#F1EEFC",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#51458C",
+                  fontSize: 13,
+                  fontWeight: "700",
+                }}
+              >
+                취소
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

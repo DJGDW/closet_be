@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback } from "react";
 import { router } from "expo-router";
 import { Platform } from "react-native";
@@ -15,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { styles } from "../styles/mypage.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type LoginUser = {
   userPk?: number;
@@ -145,7 +144,7 @@ export default function MyPageScreen() {
         {
           method: "GET",
           headers,
-        }
+        },
       );
 
       if (likedResponse.ok) {
@@ -180,9 +179,7 @@ export default function MyPageScreen() {
             : [];
 
         setPurchaseCount(
-          orders.filter(
-            (order) => Number(order.purchaseStatus) === 1
-          ).length
+          orders.filter((order) => Number(order.purchaseStatus) === 1).length,
         );
       }
     } catch (error) {
@@ -238,16 +235,13 @@ export default function MyPageScreen() {
         return;
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/follow/followers`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/follow/followers`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`팔로워 조회 실패 (HTTP ${response.status})`);
@@ -343,10 +337,7 @@ export default function MyPageScreen() {
               </Text>
             </View>
 
-            <Pressable
-              style={styles.followStat}
-              onPress={handleFollowersPress}
-            >
+            <Pressable style={styles.followStat} onPress={handleFollowersPress}>
               <Text style={styles.statNumber}>
                 {loadingFollowers ? "..." : followerList.length}
               </Text>
@@ -354,10 +345,7 @@ export default function MyPageScreen() {
               <Text style={styles.statLabel}>팔로워</Text>
             </Pressable>
 
-            <Pressable
-              style={styles.followStat}
-              onPress={handleFollowingPress}
-            >
+            <Pressable style={styles.followStat} onPress={handleFollowingPress}>
               <Text style={styles.statNumber}>
                 {loadingFollowing ? "..." : followingList.length}
               </Text>
@@ -440,9 +428,7 @@ export default function MyPageScreen() {
                 </View>
 
                 <View style={styles.menuRight}>
-                  <Text style={styles.menuCount}>
-                    {saleCount ?? "—"}
-                  </Text>
+                  <Text style={styles.menuCount}>{saleCount ?? "—"}</Text>
                   <Text style={styles.chevron}>›</Text>
                 </View>
               </Pressable>

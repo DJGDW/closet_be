@@ -17,7 +17,7 @@ import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 
 const PURPLE = "#8B5CF6";
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type ChatMessage = {
   msgPk: number;
@@ -90,6 +90,53 @@ export default function ChatRoomScreen() {
   const [editingMessagePk, setEditingMessagePk] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [processingMessage, setProcessingMessage] = useState(false);
+  const [closeRequestState, setCloseRequestState] = useState<
+    "idle" | "waiting" | "incoming"
+  >("idle");
+
+  // 상담 종료 API 연결 전: 화면 확인용 임시 처리
+  const requestServiceClose = () => {
+    const confirmClose = () => {
+      setCloseRequestState("waiting");
+      Alert.alert(
+        "상담 종료 요청",
+        "종료 요청 UI 확인용입니다. 아직 백엔드 API가 연결되지 않아 상대방에게 전달되지는 않습니다.",
+        [{ text: "확인" }],
+      );
+    };
+
+    if (Platform.OS === "web") {
+      if (window.confirm("상대방에게 상담 종료를 요청할까요?")) {
+        confirmClose();
+      }
+    } else {
+      Alert.alert("상담 종료", "상대방에게 상담 종료를 요청할까요?", [
+        { text: "취소", style: "cancel" },
+        { text: "종료 요청", onPress: confirmClose },
+      ]);
+    }
+  };
+
+  // 상담 종료 요청 취소 (API 연결 전 화면 상태만 초기화)
+  const cancelServiceClose = () => {
+    setCloseRequestState("idle");
+  };
+
+  const goToServiceComplete = () => {
+    router.push({
+      pathname: "/chat/complete",
+      params: {
+        name: String(name || "스타일리스트"),
+        stylistName: String(name || "스타일리스트"),
+        roomPk: String(roomId || ""),
+        // API 연결 전 미리보기에서는 임시 값 사용
+        orderPk: "1",
+        serviceName: "BASIC 스타일링 서비스",
+        useDate: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
+        method: "채팅 상담",
+      },
+    } as any);
+  };
 
   const fetchMessages = useCallback(async () => {
     if (!roomId) return;
@@ -378,7 +425,50 @@ export default function ChatRoomScreen() {
         </Pressable>
 
         <Text style={styles.headerName}>{name || "스타일리스트"}</Text>
+
+        {!isReadOnly && closeRequestState === "idle" && (
+          <Pressable
+            style={styles.headerCloseButton}
+            onPress={requestServiceClose}
+          >
+            <Text style={styles.headerCloseButtonText}>서비스 종료</Text>
+          </Pressable>
+        )}
+
+        {!isReadOnly && closeRequestState === "waiting" && (
+          <Pressable
+            style={styles.headerWaitingButton}
+            onPress={cancelServiceClose}
+          >
+            <Text style={styles.headerWaitingButtonText}>요청 취소</Text>
+          </Pressable>
+        )}
       </View>
+
+      {!isReadOnly && closeRequestState === "waiting" && (
+        <View style={styles.closeWaitingBanner}>
+          <Text style={styles.closeWaitingTitle}>
+            상담 종료 요청을 보냈어요
+          </Text>
+          <Text style={styles.closeWaitingDesc}>
+            상대방의 수락을 기다리고 있습니다.
+            {"\n"}현재는 API 연결 전이라 실제 상대방에게 전달되지는 않습니다.
+          </Text>
+          <Pressable
+            onPress={goToServiceComplete}
+            style={{
+              marginTop: 10,
+              backgroundColor: "#51458C",
+              padding: 8,
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: "white", fontSize: 12 }}>
+              완료 페이지 미리보기 (테스트)
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -619,6 +709,31 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#222222",
   },
+  headerCloseButton: {
+    marginLeft: "auto",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    backgroundColor: "#8B5CF6",
+  },
+  headerCloseButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  headerWaitingButton: {
+    marginLeft: "auto",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#8B5CF6",
+  },
+  headerWaitingButtonText: {
+    color: "#8B5CF6",
+    fontSize: 11,
+    fontWeight: "700",
+  },
   messageList: {
     padding: 16,
     paddingBottom: 20,
@@ -815,6 +930,88 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "bold",
+  },
+  serviceCloseButton: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 6,
+    height: 44,
+    borderWidth: 1,
+    borderColor: "#51458C",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  serviceCloseButtonText: {
+    color: "#51458C",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  closeWaitingBanner: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    padding: 14,
+    backgroundColor: "#F3F1FA",
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  closeIncomingBanner: {
+    marginHorizontal: 16,
+    marginVertical: 8,
+    padding: 14,
+    backgroundColor: "#F3F1FA",
+    borderRadius: 12,
+  },
+  closeWaitingTitle: {
+    color: "#51458C",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  closeWaitingDesc: {
+    color: "#777777",
+    fontSize: 12,
+    marginTop: 5,
+    textAlign: "center",
+  },
+  closeCancelButton: {
+    marginTop: 8,
+    padding: 6,
+  },
+  closeCancelText: {
+    color: "#777777",
+    fontSize: 12,
+    textDecorationLine: "underline",
+  },
+  closeActionRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  closeDeclineButton: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "#AAAAAA",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeDeclineText: {
+    color: "#666666",
+    fontWeight: "600",
+  },
+  closeAcceptButton: {
+    flex: 1,
+    height: 40,
+    backgroundColor: "#51458C",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeAcceptText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   emptyText: {
     textAlign: "center",

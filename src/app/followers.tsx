@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
 import {
@@ -16,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type Follower = {
   userPk: number;
@@ -43,16 +42,13 @@ export default function FollowersScreen() {
         return;
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/follow/followers`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/follow/followers`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       if (!response.ok) {
         throw new Error(`팔로워 조회 실패 (HTTP ${response.status})`);
@@ -80,10 +76,7 @@ export default function FollowersScreen() {
 
       <View style={styles.screen}>
         <View style={styles.header}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backIcon}>‹</Text>
           </Pressable>
 
@@ -94,17 +87,13 @@ export default function FollowersScreen() {
 
         <View style={styles.countArea}>
           <Text style={styles.countLabel}>팔로워</Text>
-          <Text style={styles.countNumber}>
-            {followerList.length}
-          </Text>
+          <Text style={styles.countNumber}>{followerList.length}</Text>
         </View>
 
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color="#51478F" />
-            <Text style={styles.emptyText}>
-              목록을 불러오는 중...
-            </Text>
+            <Text style={styles.emptyText}>목록을 불러오는 중...</Text>
           </View>
         ) : followerList.length === 0 ? (
           <View style={styles.center}>
@@ -138,9 +127,7 @@ export default function FollowersScreen() {
                   </Text>
 
                   {item.userName ? (
-                    <Text style={styles.userName}>
-                      @{item.userName}
-                    </Text>
+                    <Text style={styles.userName}>@{item.userName}</Text>
                   ) : null}
                 </View>
               </View>

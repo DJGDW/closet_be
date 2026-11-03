@@ -1,4 +1,3 @@
-
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -16,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type PortfolioPost = {
   postPk: number;
@@ -83,15 +82,14 @@ export default function PortfolioScreen() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (!response.ok) {
         throw new Error(`게시물 조회 실패 (${response.status})`);
       }
 
-      const result: PortfolioResponse | PortfolioPost[] =
-        await response.json();
+      const result: PortfolioResponse | PortfolioPost[] = await response.json();
 
       const content: PortfolioPost[] = Array.isArray(result)
         ? result
@@ -108,7 +106,7 @@ export default function PortfolioScreen() {
         (post) =>
           String(post.stylistPk) === String(id) &&
           typeof post.imageUrl === "string" &&
-          post.imageUrl.trim().length > 0
+          post.imageUrl.trim().length > 0,
       );
 
       setPosts(filtered);
@@ -118,7 +116,7 @@ export default function PortfolioScreen() {
       setError(
         error instanceof Error
           ? error.message
-          : "포트폴리오를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요."
+          : "포트폴리오를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
       );
     } finally {
       setLoading(false);
@@ -150,33 +148,22 @@ export default function PortfolioScreen() {
       {loading ? (
         <View style={styles.stateContainer}>
           <ActivityIndicator size="small" color="#8275E8" />
-          <Text style={styles.stateText}>
-            포트폴리오를 불러오는 중입니다.
-          </Text>
+          <Text style={styles.stateText}>포트폴리오를 불러오는 중입니다.</Text>
         </View>
       ) : error ? (
         <View style={styles.stateContainer}>
-          <Ionicons
-            name="cloud-offline-outline"
-            size={32}
-            color="#AAAAAA"
-          />
+          <Ionicons name="cloud-offline-outline" size={32} color="#AAAAAA" />
 
           <Text style={styles.stateText}>{error}</Text>
 
-          <Pressable
-            onPress={fetchPortfolios}
-            style={styles.retryButton}
-          >
+          <Pressable onPress={fetchPortfolios} style={styles.retryButton}>
             <Text style={styles.retryText}>다시 시도</Text>
           </Pressable>
         </View>
       ) : posts.length === 0 ? (
         <View style={styles.stateContainer}>
           <Ionicons name="images-outline" size={28} color="#AAAAAA" />
-          <Text style={styles.stateText}>
-            등록된 포트폴리오가 없습니다.
-          </Text>
+          <Text style={styles.stateText}>등록된 포트폴리오가 없습니다.</Text>
         </View>
       ) : (
         <ScrollView
@@ -216,10 +203,7 @@ export default function PortfolioScreen() {
                       </Text>
                     </View>
 
-                    <Text
-                      style={styles.stylistName}
-                      numberOfLines={1}
-                    >
+                    <Text style={styles.stylistName} numberOfLines={1}>
                       {post.stylistNickname}
                     </Text>
                   </View>

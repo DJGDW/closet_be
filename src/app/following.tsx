@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from "react";
 import { router } from "expo-router";
 import {
@@ -16,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type Following = {
   stylistPk: number;
@@ -77,10 +76,7 @@ export default function FollowingScreen() {
 
       <View style={styles.screen}>
         <View style={styles.header}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backIcon}>‹</Text>
           </Pressable>
 
@@ -91,17 +87,13 @@ export default function FollowingScreen() {
 
         <View style={styles.countArea}>
           <Text style={styles.countLabel}>팔로잉</Text>
-          <Text style={styles.countNumber}>
-            {followingList.length}
-          </Text>
+          <Text style={styles.countNumber}>{followingList.length}</Text>
         </View>
 
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color="#51478F" />
-            <Text style={styles.emptyText}>
-              목록을 불러오는 중...
-            </Text>
+            <Text style={styles.emptyText}>목록을 불러오는 중...</Text>
           </View>
         ) : followingList.length === 0 ? (
           <View style={styles.center}>
@@ -144,9 +136,7 @@ export default function FollowingScreen() {
                   </Text>
 
                   {item.userName ? (
-                    <Text style={styles.userName}>
-                      @{item.userName}
-                    </Text>
+                    <Text style={styles.userName}>@{item.userName}</Text>
                   ) : null}
                 </View>
 

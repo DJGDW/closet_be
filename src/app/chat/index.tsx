@@ -13,7 +13,7 @@ import { useCallback, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 
 const PURPLE = "#8B5CF6";
-const API_BASE_URL = "http://192.168.0.5:8080";;
+const API_BASE_URL = "http://192.168.219.107:8080";
 
 type ChatRoom = {
   roomPk: number;
