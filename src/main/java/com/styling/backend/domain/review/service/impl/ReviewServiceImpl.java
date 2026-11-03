@@ -1,11 +1,14 @@
 package com.styling.backend.domain.review.service.impl;
 
+import com.styling.backend.domain.global.image.ImageService;
 import com.styling.backend.domain.order.entity.Order;
 import com.styling.backend.domain.order.repository.OrderRepository;
 import com.styling.backend.domain.review.dto.ReviewCreateRequestDto;
 import com.styling.backend.domain.review.dto.ReviewCreateResponseDto;
 import com.styling.backend.domain.review.dto.ReviewListResponseDto;
 import com.styling.backend.domain.review.entity.Review;
+import com.styling.backend.domain.review.entity.ReviewImage;
+import com.styling.backend.domain.review.repository.ReviewImageRepository;
 import com.styling.backend.domain.review.repository.ReviewRepository;
 import com.styling.backend.domain.review.service.ReviewService;
 import com.styling.backend.domain.stylist.entity.Stylist;
@@ -18,9 +21,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -28,14 +33,17 @@ import java.util.List;
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
+    private final ReviewImageRepository reviewImageRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final ImageService imageService;
 
     @Override
     @Transactional
     public ReviewCreateResponseDto createReview(
             Long orderPk,
-            ReviewCreateRequestDto request
+            ReviewCreateRequestDto request,
+            List<MultipartFile> images
     ) {
         User user = getLoginUser();
 
@@ -62,6 +70,28 @@ public class ReviewServiceImpl implements ReviewService {
         );
 
         reviewRepository.save(review);
+
+        if (images != null && !images.isEmpty()) {
+            List<ReviewImage> reviewImages = new ArrayList<>();
+
+            for (int i = 0; i < images.size(); i++) {
+                MultipartFile image = images.get(i);
+
+                if (image == null || image.isEmpty()) {
+                    continue;
+                }
+
+                String imageUrl = imageService.uploadImage(image, "reviews");
+
+                reviewImages.add(
+                        new ReviewImage(review, imageUrl, i)
+                );
+            }
+
+            if (!reviewImages.isEmpty()) {
+                reviewImageRepository.saveAll(reviewImages);
+            }
+        }
 
         Double averageRate = reviewRepository.findAverageRateByStylistPk(
                 stylist.getStylistPk()

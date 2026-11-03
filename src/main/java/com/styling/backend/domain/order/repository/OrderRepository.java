@@ -1,6 +1,7 @@
 package com.styling.backend.domain.order.repository;
 
 import com.styling.backend.domain.order.entity.Order;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -15,4 +16,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByOrderPkAndUser_UserPk(Long orderPk, Long userPk);
 
     List<Order> findAllByUser_UserPkOrderByOrderPkDesc(Long userPk);
+
+    @EntityGraph(attributePaths = {"user", "stylistPlan", "stylistPlan.plan"})
+    List<Order> findAllByStylist_User_UserPkOrderByOrderPkDesc(Long userPk);
 }
