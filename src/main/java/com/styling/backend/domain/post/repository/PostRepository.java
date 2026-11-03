@@ -60,5 +60,66 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             Pageable pageable
     );
 
+    @Query(
+            value = """
+                    SELECT p
+                    FROM Post p
+                    WHERE (:typePks IS NULL OR p.styleType.typePk IN :typePks)
+                    ORDER BY p.createdAt DESC
+                    """,
+            countQuery = """
+                    SELECT COUNT(p)
+                    FROM Post p
+                    WHERE (:typePks IS NULL OR p.styleType.typePk IN :typePks)
+                    """
+    )
+    Page<Post> findAllByTypePksOrderByCreatedAtDesc(
+            @Param("typePks") List<Long> typePks,
+            Pageable pageable
+    );
+
+    @Query(
+            value = """
+                    SELECT p
+                    FROM Post p
+                    LEFT JOIN PostReaction r
+                        ON r.post.postPk = p.postPk
+                        AND r.reactionType = 0
+                    WHERE (:typePks IS NULL OR p.styleType.typePk IN :typePks)
+                    GROUP BY p
+                    ORDER BY COUNT(r.reactionPk) DESC, p.createdAt DESC
+                    """,
+            countQuery = """
+                    SELECT COUNT(p)
+                    FROM Post p
+                    WHERE (:typePks IS NULL OR p.styleType.typePk IN :typePks)
+                    """
+    )
+    Page<Post> findAllByTypePksOrderByLikeCountDesc(
+            @Param("typePks") List<Long> typePks,
+            Pageable pageable
+    );
+
+    @Query(
+            value = """
+                    SELECT p
+                    FROM Post p
+                    LEFT JOIN Review r
+                        ON r.stylist.stylistPk = p.stylist.stylistPk
+                    WHERE (:typePks IS NULL OR p.styleType.typePk IN :typePks)
+                    GROUP BY p
+                    ORDER BY COUNT(r.reviewPk) DESC, p.createdAt DESC
+                    """,
+            countQuery = """
+                    SELECT COUNT(p)
+                    FROM Post p
+                    WHERE (:typePks IS NULL OR p.styleType.typePk IN :typePks)
+                    """
+    )
+    Page<Post> findAllByTypePksOrderByReviewCountDesc(
+            @Param("typePks") List<Long> typePks,
+            Pageable pageable
+    );
+
     Long countByStylist_StylistPk(Long stylistPk);
 }

@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/post/explore")
 @RequiredArgsConstructor
@@ -23,7 +25,7 @@ public class PostExploreController {
     @Operation(summary = "탐색 게시글 조회")
     @GetMapping
     public ResponseEntity<Page<PostExploreResponseDto>> getExplorePosts(
-            @RequestParam(required = false) Long typePk,
+            @RequestParam(required = false) List<Long> typePks,
             @RequestParam(defaultValue = "LATEST") String sort,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size
@@ -33,7 +35,8 @@ public class PostExploreController {
         }
 
         if (!sort.equalsIgnoreCase("LATEST")
-                && !sort.equalsIgnoreCase("LIKES")) {
+                && !sort.equalsIgnoreCase("LIKES")
+                && !sort.equalsIgnoreCase("REVIEWS")) {
             return ResponseEntity.badRequest().build();
         }
 
@@ -41,7 +44,7 @@ public class PostExploreController {
 
         Page<PostExploreResponseDto> posts =
                 postExploreService.getExplorePosts(
-                        typePk,
+                        typePks,
                         sort,
                         pageable
                 );
