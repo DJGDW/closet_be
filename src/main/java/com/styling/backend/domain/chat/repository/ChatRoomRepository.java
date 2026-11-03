@@ -32,6 +32,32 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
             Byte roomStatus
     );
 
+    @Query("""
+            SELECT cr
+            FROM ChatRoom cr
+            LEFT JOIN FETCH cr.order
+            WHERE cr.user.userPk = :userPk
+              AND cr.roomStatus = :roomStatus
+            ORDER BY cr.createdAt DESC
+            """)
+    List<ChatRoom> findByUserWithOrder(
+            @Param("userPk") Long userPk,
+            @Param("roomStatus") Byte roomStatus
+    );
+
+    @Query("""
+            SELECT cr
+            FROM ChatRoom cr
+            LEFT JOIN FETCH cr.order
+            WHERE cr.stylist.user.userPk = :userPk
+              AND cr.roomStatus = :roomStatus
+            ORDER BY cr.createdAt DESC
+            """)
+    List<ChatRoom> findByStylistWithOrder(
+            @Param("userPk") Long userPk,
+            @Param("roomStatus") Byte roomStatus
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT cr FROM ChatRoom cr WHERE cr.roomPk = :roomPk")
     Optional<ChatRoom> findByRoomPkWithLock(

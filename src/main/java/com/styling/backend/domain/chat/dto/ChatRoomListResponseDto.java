@@ -11,6 +11,7 @@ import java.time.Instant;
 public class ChatRoomListResponseDto {
 
     private final Long roomPk;
+    private final Long orderPk;
     private final String opponentNickname;
     private final String opponentProfilePic;
     private final String lastMessage;
@@ -27,6 +28,9 @@ public class ChatRoomListResponseDto {
             Long unreadCount
     ) {
         this.roomPk = chatRoom.getRoomPk();
+        this.orderPk = chatRoom.getOrder() != null
+                ? chatRoom.getOrder().getOrderPk()
+                : null;
         this.opponentNickname = opponent.getNickname();
         this.opponentProfilePic = opponent.getProfilePic();
         this.lastMessage = lastMessage != null

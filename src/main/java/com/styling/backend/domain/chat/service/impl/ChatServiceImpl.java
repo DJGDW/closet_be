@@ -265,13 +265,13 @@ public class ChatServiceImpl implements ChatService {
             Byte roomStatus
     ) {
         List<ChatRoom> userRooms =
-                chatRoomRepository.findByUser_UserPkAndRoomStatusOrderByCreatedAtDesc(
+                chatRoomRepository.findByUserWithOrder(
                         user.getUserPk(),
                         roomStatus
                 );
 
         List<ChatRoom> stylistRooms =
-                chatRoomRepository.findByStylist_User_UserPkAndRoomStatusOrderByCreatedAtDesc(
+                chatRoomRepository.findByStylistWithOrder(
                         user.getUserPk(),
                         roomStatus
                 );
