@@ -9,6 +9,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -21,15 +22,16 @@ public class ReviewController {
 
     @Operation(
             summary = "리뷰 작성",
-            description = "서비스가 최종 완료된 주문에 대해 구매자가 리뷰를 작성합니다."
+            description = "서비스가 최종 완료된 주문에 대해 구매자가 여러 장의 사진과 함께 리뷰를 작성합니다."
     )
-    @PostMapping("/{orderPk}")
+    @PostMapping(value = "/{orderPk}", consumes = "multipart/form-data")
     @ResponseStatus(HttpStatus.CREATED)
     public ReviewCreateResponseDto createReview(
             @PathVariable Long orderPk,
-            @Valid @RequestBody ReviewCreateRequestDto request
+            @Valid @RequestPart("request") ReviewCreateRequestDto request,
+            @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
-        return reviewService.createReview(orderPk, request);
+        return reviewService.createReview(orderPk, request, images);
     }
 
     @Operation(
