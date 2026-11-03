@@ -6,6 +6,7 @@ import com.styling.backend.domain.chat.repository.ChatRoomRepository;
 import com.styling.backend.domain.order.dto.OrderCreateRequestDto;
 import com.styling.backend.domain.order.dto.OrderCreateResponseDto;
 import com.styling.backend.domain.order.dto.OrderListResponseDto;
+import com.styling.backend.domain.order.dto.OrderSaleListResponseDto;
 import com.styling.backend.domain.order.dto.PaymentCancelRequestDto;
 import com.styling.backend.domain.order.dto.PaymentCancelResponseDto;
 import com.styling.backend.domain.order.dto.PaymentConfirmRequestDto;
@@ -252,6 +253,29 @@ public class OrderServiceImpl implements OrderService {
                         order.getStylist().getUser().getUserName(),
                         order.getStylist().getUser().getNickname(),
                         order.getStylist().getUser().getProfilePic(),
+                        order.getPrice(),
+                        order.getPurchaseStatus(),
+                        order.getProcessStatus(),
+                        order.getOrderStarted(),
+                        order.getOrderFinished()
+                ))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderSaleListResponseDto> getSaleList() {
+        User user = getLoginUser();
+
+        return orderRepository
+                .findAllByStylist_User_UserPkOrderByOrderPkDesc(user.getUserPk())
+                .stream()
+                .map(order -> new OrderSaleListResponseDto(
+                        order.getOrderPk(),
+                        order.getStylistPlan().getPlan().getPlanTier(),
+                        order.getUser().getUserName(),
+                        order.getUser().getNickname(),
+                        order.getUser().getProfilePic(),
                         order.getPrice(),
                         order.getPurchaseStatus(),
                         order.getProcessStatus(),

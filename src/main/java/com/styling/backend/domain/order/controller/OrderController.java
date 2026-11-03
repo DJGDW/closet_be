@@ -3,6 +3,7 @@ package com.styling.backend.domain.order.controller;
 import com.styling.backend.domain.order.dto.OrderCreateRequestDto;
 import com.styling.backend.domain.order.dto.OrderCreateResponseDto;
 import com.styling.backend.domain.order.dto.OrderListResponseDto;
+import com.styling.backend.domain.order.dto.OrderSaleListResponseDto;
 import com.styling.backend.domain.order.dto.PaymentCancelRequestDto;
 import com.styling.backend.domain.order.dto.PaymentCancelResponseDto;
 import com.styling.backend.domain.order.dto.PaymentConfirmRequestDto;
@@ -70,6 +71,12 @@ public class OrderController {
     @GetMapping
     public List<OrderListResponseDto> getOrderList() {
         return orderService.getOrderList();
+    }
+
+    @Operation(summary = "판매내역 조회", description = "로그인한 스타일리스트의 전체 판매내역을 최신순으로 조회합니다.")
+    @GetMapping("/sales")
+    public List<OrderSaleListResponseDto> getSaleList() {
+        return orderService.getSaleList();
     }
 
     @Operation(summary = "플랜 업그레이드 결제 생성", description = "기존 주문의 상위 플랜 업그레이드를 위한 추가 결제 정보를 생성합니다.")
