@@ -70,6 +70,16 @@ public class PostController {
         return ResponseEntity.ok("게시글이 수정되었습니다.");
     }
 
+    @Operation(summary = "게시글 삭제")
+    @DeleteMapping("/{postPk}")
+    public ResponseEntity<String> deletePost(
+            @PathVariable Long postPk
+    ) {
+        postService.deletePost(postPk);
+
+        return ResponseEntity.ok("게시글이 삭제되었습니다.");
+    }
+
     @Operation(summary = "내 게시글 목록 조회")
     @GetMapping("/my")
     public ResponseEntity<Page<PostExploreResponseDto>> getMyPosts(

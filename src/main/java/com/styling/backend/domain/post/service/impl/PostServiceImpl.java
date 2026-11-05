@@ -9,6 +9,7 @@ import com.styling.backend.domain.post.entity.Post;
 import com.styling.backend.domain.post.entity.PostHashtag;
 import com.styling.backend.domain.post.repository.PostReactionRepository;
 import com.styling.backend.domain.post.repository.PostRepository;
+import com.styling.backend.domain.post.repository.PostViewRepository;
 import com.styling.backend.domain.post.service.PostService;
 import com.styling.backend.domain.ratio.entity.RatioType;
 import com.styling.backend.domain.ratio.repository.RatioTypeRepository;
@@ -38,6 +39,7 @@ public class PostServiceImpl implements PostService {
     private final StyleTypeRepository styleTypeRepository;
     private final RatioTypeRepository ratioTypeRepository;
     private final PostReactionRepository postReactionRepository;
+    private final PostViewRepository postViewRepository;
     private final ImageService imageService;
 
     @Override
@@ -144,6 +146,39 @@ public class PostServiceImpl implements PostService {
                 saveHashtags(post, hashtags);
             }
         }
+    }
+
+    @Override
+    @Transactional
+    public void deletePost(Long postPk) {
+        Stylist stylist = getLoginStylist();
+
+        if (postPk == null) {
+            throw new IllegalArgumentException("게시글 번호는 필수입니다.");
+        }
+
+        Post post = postRepository.findById(postPk)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 게시글입니다."));
+
+        if (!post.getStylist().getStylistPk().equals(stylist.getStylistPk())) {
+            throw new IllegalArgumentException("본인의 게시글만 삭제할 수 있습니다.");
+        }
+
+        List<PostHashtag> hashtagRelations =
+                postHashtagRepository.findByPost_PostPk(postPk);
+
+        for (PostHashtag relation : hashtagRelations) {
+            relation.getHashtag().decreaseUsed();
+        }
+
+        postHashtagRepository.deleteAll(hashtagRelations);
+
+        postReactionRepository.deleteAllByPost_PostPk(postPk);
+
+        postViewRepository.deleteAllByPost_PostPk(postPk);
+
+        postRepository.delete(post);
     }
 
     private Stylist getLoginStylist() {

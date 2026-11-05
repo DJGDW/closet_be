@@ -24,6 +24,8 @@ public interface PostService {
             List<String> hashtags
     );
 
+    void deletePost(Long postPk);
+
     Page<PostExploreResponseDto> getMyPosts(Pageable pageable);
 
     Page<PostExploreResponseDto> getStylistPosts(
