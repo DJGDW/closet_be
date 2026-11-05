@@ -54,6 +54,7 @@ public class StylistService {
 
     @Transactional
     public void register(StylistRegisterRequestDto request) {
+
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
@@ -134,6 +135,7 @@ public class StylistService {
 
     @Transactional
     public void updateMyInfo(StylistRegisterRequestDto request) {
+
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
@@ -239,6 +241,7 @@ public class StylistService {
 
     @Transactional(readOnly = true)
     public StylistCheckResponseDto checkStylist() {
+
         Authentication authentication =
                 SecurityContextHolder.getContext().getAuthentication();
 
@@ -255,6 +258,24 @@ public class StylistService {
                 stylistRepository.existsByUser_UserPk(user.getUserPk());
 
         return new StylistCheckResponseDto(isStylist);
+    }
+
+    @Transactional(readOnly = true)
+    public StylistDetailResponseDto getMyInfo() {
+
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof String userId)) {
+            throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
+        }
+
+        Stylist stylist = stylistRepository.findByUser_UserId(userId)
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.STYLIST_NOT_FOUND));
+
+        return getStylistDetail(stylist.getStylistPk());
     }
 
     @Transactional(readOnly = true)

@@ -33,6 +33,12 @@ public class StylistController {
         return ResponseEntity.ok(stylistService.checkStylist());
     }
 
+    @Operation(summary = "내 스타일리스트 정보 조회")
+    @GetMapping("/me")
+    public ResponseEntity<StylistDetailResponseDto> getMyInfo() {
+        return ResponseEntity.ok(stylistService.getMyInfo());
+    }
+
     @Operation(summary = "스타일리스트 상세 조회")
     @GetMapping("/{stylistPk}")
     public ResponseEntity<StylistDetailResponseDto> getStylistDetail(
