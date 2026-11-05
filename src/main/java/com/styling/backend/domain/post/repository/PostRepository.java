@@ -122,4 +122,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     );
 
     Long countByStylist_StylistPk(Long stylistPk);
+
+    Page<Post> findAllByStylist_StylistPkOrderByCreatedAtDesc(
+            Long stylistPk,
+            Pageable pageable
+    );
 }

@@ -1,6 +1,7 @@
 package com.styling.backend.domain.post.controller;
 
 import com.styling.backend.domain.post.dto.PostDetailResponseDto;
+import com.styling.backend.domain.post.dto.PostExploreResponseDto;
 import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 import com.styling.backend.domain.post.dto.PostReactionRequestDto;
 import com.styling.backend.domain.post.dto.PostRecommendationResponseDto;
@@ -52,6 +53,41 @@ public class PostController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body("게시글이 등록되었습니다.");
+    }
+
+    @Operation(summary = "내 게시글 목록 조회")
+    @GetMapping("/my")
+    public ResponseEntity<Page<PostExploreResponseDto>> getMyPosts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        if (page < 0 || size < 1 || size > 50) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        return ResponseEntity.ok(
+                postService.getMyPosts(pageable)
+        );
+    }
+
+    @Operation(summary = "특정 스타일리스트 게시글 목록 조회")
+    @GetMapping("/stylist/{stylistPk}")
+    public ResponseEntity<Page<PostExploreResponseDto>> getStylistPosts(
+            @PathVariable Long stylistPk,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        if (page < 0 || size < 1 || size > 50) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        return ResponseEntity.ok(
+                postService.getStylistPosts(stylistPk, pageable)
+        );
     }
 
     @Operation(summary = "추천 게시글 목록 조회")
