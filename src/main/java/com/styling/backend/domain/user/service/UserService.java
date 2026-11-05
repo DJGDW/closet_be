@@ -6,6 +6,7 @@ import com.styling.backend.domain.user.dto.UserBodyUpdateRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginResponseDto;
 import com.styling.backend.domain.user.dto.UserPasswordUpdateRequestDto;
+import com.styling.backend.domain.user.dto.UserProfileResponseDto;
 import com.styling.backend.domain.user.dto.UserSignupRequestDto;
 import com.styling.backend.domain.user.dto.UserUpdateRequestDto;
 import com.styling.backend.domain.user.entity.StyleTypeUser;
@@ -13,6 +14,7 @@ import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.entity.UserBody;
 import com.styling.backend.domain.user.mapper.UserMapper;
 import com.styling.backend.domain.user.repository.StyleTypeUserRepository;
+import com.styling.backend.domain.user.repository.UserBodyRatioRepository;
 import com.styling.backend.domain.user.repository.UserBodyRepository;
 import com.styling.backend.domain.user.repository.UserRepository;
 import com.styling.backend.exception.BusinessException;
@@ -25,12 +27,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
     private final UserRepository userRepository;
     private final UserBodyRepository userBodyRepository;
+    private final UserBodyRatioRepository userBodyRatioRepository;
     private final StyleTypeRepository styleTypeRepository;
     private final StyleTypeUserRepository styleTypeUserRepository;
     private final UserMapper userMapper;
@@ -107,6 +112,74 @@ public class UserService {
                 user.getUserPk(),
                 user.getUserId(),
                 user.getNickname()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public UserProfileResponseDto getMyProfile() {
+
+        User user = getAuthenticatedUser();
+
+        UserProfileResponseDto.UserBodyInfo bodyInfo =
+                userBodyRepository.findByUser_UserPk(user.getUserPk())
+                        .map(userBody -> {
+
+                            UserProfileResponseDto.UserBodyRatioInfo ratioInfo =
+                                    userBodyRatioRepository
+                                            .findByUserBody_User_UserPk(user.getUserPk())
+                                            .map(ratio ->
+                                                    new UserProfileResponseDto.UserBodyRatioInfo(
+                                                            ratio.getShoulderRatio(),
+                                                            ratio.getBellyRatio(),
+                                                            ratio.getThighRatio(),
+                                                            ratio.getCalfRatio(),
+                                                            ratio.getLegRatio()
+                                                    ))
+                                            .orElse(null);
+
+                            return new UserProfileResponseDto.UserBodyInfo(
+                                    userBody.getTall(),
+                                    userBody.getWeight(),
+                                    userBody.getChestSize(),
+                                    userBody.getWaistSize(),
+                                    userBody.getShoulderWidth(),
+                                    userBody.getHips(),
+                                    userBody.getThigh(),
+                                    userBody.getCalf(),
+                                    userBody.getLeg(),
+                                    ratioInfo
+                            );
+                        })
+                        .orElse(null);
+
+        List<UserProfileResponseDto.StyleTypeInfo> styleTypes =
+                styleTypeUserRepository.findByUser_UserPk(user.getUserPk())
+                        .stream()
+                        .map(styleTypeUser -> {
+                            StyleType styleType = styleTypeUser.getStyleType();
+
+                            return new UserProfileResponseDto.StyleTypeInfo(
+                                    styleType.getTypePk(),
+                                    styleType.getStyleName(),
+                                    styleType.getStyleCode()
+                            );
+                        })
+                        .toList();
+
+        return new UserProfileResponseDto(
+                user.getUserPk(),
+                user.getUserId(),
+                user.getUserName(),
+                user.getNickname(),
+                user.getPhoneNumber(),
+                user.getBirthDate(),
+                user.getEmail(),
+                user.getGender(),
+                user.getProfilePic(),
+                user.getRole(),
+                user.getCreatedAt(),
+                bodyInfo,
+                styleTypes
         );
     }
 

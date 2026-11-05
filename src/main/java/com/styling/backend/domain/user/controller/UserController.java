@@ -5,6 +5,7 @@ import com.styling.backend.domain.user.dto.UserBodyUpdateRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginRequestDto;
 import com.styling.backend.domain.user.dto.UserLoginResponseDto;
 import com.styling.backend.domain.user.dto.UserPasswordUpdateRequestDto;
+import com.styling.backend.domain.user.dto.UserProfileResponseDto;
 import com.styling.backend.domain.user.dto.UserSignupRequestDto;
 import com.styling.backend.domain.user.dto.UserUpdateRequestDto;
 import com.styling.backend.domain.user.service.UserService;
@@ -66,6 +67,12 @@ public class UserController {
             @Valid @RequestBody UserLoginRequestDto request
     ) {
         return ResponseEntity.ok(userService.login(request));
+    }
+
+    @Operation(summary = "내 프로필 조회")
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileResponseDto> getMyProfile() {
+        return ResponseEntity.ok(userService.getMyProfile());
     }
 
     @Operation(summary = "아이디 중복확인")
