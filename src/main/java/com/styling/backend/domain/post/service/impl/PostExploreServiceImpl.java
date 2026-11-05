@@ -26,7 +26,7 @@ public class PostExploreServiceImpl implements PostExploreService {
 
     @Override
     public Page<PostExploreResponseDto> getExplorePosts(
-            Long typePk,
+            List<Long> typePks,
             String sort,
             Pageable pageable
     ) {
@@ -34,37 +34,32 @@ public class PostExploreServiceImpl implements PostExploreService {
                 ? "LATEST"
                 : sort.toUpperCase(Locale.ROOT);
 
+        List<Long> selectedTypePks =
+                (typePks == null || typePks.isEmpty()) ? null : typePks;
+
         Page<Post> posts;
 
         switch (normalizedSort) {
-            case "LATEST" -> {
-                if (typePk == null) {
-                    posts = postRepository
-                            .findAllByOrderByCreatedAtDesc(pageable);
-                } else {
-                    posts = postRepository
-                            .findByStyleType_TypePkOrderByCreatedAtDesc(
-                                    typePk,
-                                    pageable
-                            );
-                }
-            }
+            case "LATEST" -> posts =
+                    postRepository.findAllByTypePksOrderByCreatedAtDesc(
+                            selectedTypePks,
+                            pageable
+                    );
 
-            case "LIKES" -> {
-                if (typePk == null) {
-                    posts = postRepository
-                            .findAllOrderByLikeCountDesc(pageable);
-                } else {
-                    posts = postRepository
-                            .findByStyleTypeOrderByLikeCountDesc(
-                                    typePk,
-                                    pageable
-                            );
-                }
-            }
+            case "LIKES" -> posts =
+                    postRepository.findAllByTypePksOrderByLikeCountDesc(
+                            selectedTypePks,
+                            pageable
+                    );
+
+            case "REVIEWS" -> posts =
+                    postRepository.findAllByTypePksOrderByReviewCountDesc(
+                            selectedTypePks,
+                            pageable
+                    );
 
             default -> throw new IllegalArgumentException(
-                    "지원하지 않는 정렬 기준입니다: " + sort
+                    "지원하지 않는 정렬 기준입니다: " + normalizedSort
             );
         }
 

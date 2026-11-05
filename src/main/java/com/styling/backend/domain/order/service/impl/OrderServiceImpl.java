@@ -3,6 +3,7 @@ package com.styling.backend.domain.order.service.impl;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.styling.backend.domain.chat.entity.ChatRoom;
 import com.styling.backend.domain.chat.repository.ChatRoomRepository;
+import com.styling.backend.domain.notification.service.NotificationService;
 import com.styling.backend.domain.order.dto.OrderCreateRequestDto;
 import com.styling.backend.domain.order.dto.OrderCreateResponseDto;
 import com.styling.backend.domain.order.dto.OrderListResponseDto;
@@ -44,6 +45,7 @@ public class OrderServiceImpl implements OrderService {
     private final UserRepository userRepository;
     private final ChatRoomRepository chatRoomRepository;
     private final TossPaymentService tossPaymentService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -152,6 +154,15 @@ public class OrderServiceImpl implements OrderService {
 
         chatRoomRepository.save(chatRoom);
 
+        notificationService.createNotification(
+                order.getStylist().getUser(),
+                order.getUser(),
+                (byte) 4,
+                "새로운 주문이 결제되었습니다.",
+                (byte) 3,
+                order.getOrderPk()
+        );
+
         return new PaymentConfirmResponseDto(
                 order.getOrderPk(),
                 order.getPurchaseStatus(),
@@ -214,6 +225,15 @@ public class OrderServiceImpl implements OrderService {
         }
 
         order.requestServiceCompletion();
+
+        notificationService.createNotification(
+                order.getUser(),
+                order.getStylist().getUser(),
+                (byte) 4,
+                "스타일리스트가 서비스 완료를 요청했습니다.",
+                (byte) 3,
+                order.getOrderPk()
+        );
     }
 
     @Override
@@ -237,6 +257,15 @@ public class OrderServiceImpl implements OrderService {
 
         chatRoomRepository.findByOrder_OrderPk(orderPk)
                 .ifPresent(ChatRoom::close);
+
+        notificationService.createNotification(
+                order.getStylist().getUser(),
+                order.getUser(),
+                (byte) 4,
+                "사용자가 서비스 완료를 수락했습니다.",
+                (byte) 3,
+                order.getOrderPk()
+        );
     }
 
     @Override
@@ -418,6 +447,15 @@ public class OrderServiceImpl implements OrderService {
         );
 
         order.upgradePlan(targetPlan);
+
+        notificationService.createNotification(
+                order.getStylist().getUser(),
+                order.getUser(),
+                (byte) 4,
+                "사용자가 서비스 플랜을 업그레이드했습니다.",
+                (byte) 3,
+                order.getOrderPk()
+        );
     }
 
     private int getPlanTier(String planCode) {

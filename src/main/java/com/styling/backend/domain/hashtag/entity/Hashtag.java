@@ -29,4 +29,10 @@ public class Hashtag {
     public void increaseUsed() {
         this.hashtagUsed++;
     }
+
+    public void decreaseUsed() {
+        if (this.hashtagUsed != null && this.hashtagUsed > 0) {
+            this.hashtagUsed--;
+        }
+    }
 }

@@ -18,4 +18,6 @@ public interface PostReactionRepository extends JpaRepository<PostReaction, Long
             Integer reactionType,
             Pageable pageable
     );
+
+    void deleteAllByPost_PostPk(Long postPk);
 }

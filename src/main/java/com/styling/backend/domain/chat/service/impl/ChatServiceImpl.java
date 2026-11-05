@@ -9,13 +9,14 @@ import com.styling.backend.domain.chat.repository.ChatMessageImageRepository;
 import com.styling.backend.domain.chat.repository.ChatMessageRepository;
 import com.styling.backend.domain.chat.repository.ChatRoomRepository;
 import com.styling.backend.domain.chat.service.ChatService;
+import com.styling.backend.domain.global.image.ImageService;
+import com.styling.backend.domain.notification.service.NotificationService;
 import com.styling.backend.domain.stylist.entity.Stylist;
 import com.styling.backend.domain.stylist.repository.StylistRepository;
 import com.styling.backend.domain.user.entity.User;
 import com.styling.backend.domain.user.repository.UserRepository;
 import com.styling.backend.exception.BusinessException;
 import com.styling.backend.exception.ErrorCode;
-import com.styling.backend.domain.global.image.ImageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -42,6 +43,7 @@ public class ChatServiceImpl implements ChatService {
     private final UserRepository userRepository;
     private final StylistRepository stylistRepository;
     private final ImageService imageService;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -88,7 +90,11 @@ public class ChatServiceImpl implements ChatService {
                 msgContent
         );
 
-        return chatMessageRepository.save(message);
+        ChatMessage savedMessage = chatMessageRepository.save(message);
+
+        createChatNotification(chatRoom, user);
+
+        return savedMessage;
     }
 
     @Override
@@ -135,6 +141,8 @@ public class ChatServiceImpl implements ChatService {
                     new ChatMessageImage(message, imageUrl, i)
             );
         }
+
+        createChatNotification(chatRoom, user);
 
         return message;
     }
@@ -258,6 +266,19 @@ public class ChatServiceImpl implements ChatService {
         }
 
         message.delete();
+    }
+
+    private void createChatNotification(ChatRoom chatRoom, User sender) {
+        User recipient = getOpponent(chatRoom, sender);
+
+        notificationService.createNotification(
+                recipient,
+                sender,
+                (byte) 3,
+                sender.getNickname() + "님이 메시지를 보냈습니다.",
+                (byte) 2,
+                chatRoom.getRoomPk()
+        );
     }
 
     private List<ChatRoomListResponseDto> getChatRoomsByStatus(

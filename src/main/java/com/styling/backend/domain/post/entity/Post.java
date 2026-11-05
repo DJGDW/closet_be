@@ -60,6 +60,17 @@ public class Post {
     }
 
     public void increaseViewCount() {
-    this.viewCount = (this.viewCount == null ? 0 : this.viewCount) + 1;
+        this.viewCount = (this.viewCount == null ? 0 : this.viewCount) + 1;
+    }
+
+    public void updatePost(
+            String content,
+            StyleType styleType,
+            RatioType ratioType
+    ) {
+        this.content = content;
+        this.styleType = styleType;
+        this.ratioType = ratioType;
+        this.updatedAt = Instant.now();
     }
 }

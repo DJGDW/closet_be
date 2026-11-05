@@ -2,6 +2,7 @@ package com.styling.backend.domain.review.controller;
 
 import com.styling.backend.domain.review.dto.ReviewCreateRequestDto;
 import com.styling.backend.domain.review.dto.ReviewCreateResponseDto;
+import com.styling.backend.domain.review.dto.ReviewDetailResponseDto;
 import com.styling.backend.domain.review.dto.ReviewListResponseDto;
 import com.styling.backend.domain.review.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -52,6 +53,17 @@ public class ReviewController {
     @GetMapping("/me")
     public List<ReviewListResponseDto> getMyReviews() {
         return reviewService.getMyReviews();
+    }
+
+    @Operation(
+            summary = "리뷰 단건 조회",
+            description = "특정 리뷰의 상세 정보와 리뷰 사진 목록을 조회합니다."
+    )
+    @GetMapping("/{reviewPk}")
+    public ReviewDetailResponseDto getReviewDetail(
+            @PathVariable Long reviewPk
+    ) {
+        return reviewService.getReviewDetail(reviewPk);
     }
 
     @Operation(

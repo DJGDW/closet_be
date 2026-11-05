@@ -5,6 +5,7 @@ import com.styling.backend.domain.order.entity.Order;
 import com.styling.backend.domain.order.repository.OrderRepository;
 import com.styling.backend.domain.review.dto.ReviewCreateRequestDto;
 import com.styling.backend.domain.review.dto.ReviewCreateResponseDto;
+import com.styling.backend.domain.review.dto.ReviewDetailResponseDto;
 import com.styling.backend.domain.review.dto.ReviewListResponseDto;
 import com.styling.backend.domain.review.entity.Review;
 import com.styling.backend.domain.review.entity.ReviewImage;
@@ -146,6 +147,29 @@ public class ReviewServiceImpl implements ReviewService {
                         review.getCreatedAt()
                 ))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ReviewDetailResponseDto getReviewDetail(Long reviewPk) {
+        Review review = reviewRepository.findById(reviewPk)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REQUEST));
+
+        List<String> imageUrls = reviewImageRepository
+                .findAllByReview_ReviewPkOrderByDisplayOrderAsc(reviewPk)
+                .stream()
+                .map(ReviewImage::getImageUrl)
+                .toList();
+
+        return new ReviewDetailResponseDto(
+                review.getReviewPk(),
+                review.getUser().getNickname(),
+                review.getUser().getProfilePic(),
+                review.getRate(),
+                review.getContent(),
+                review.getCreatedAt(),
+                imageUrls
+        );
     }
 
     @Override
