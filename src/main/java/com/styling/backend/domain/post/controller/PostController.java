@@ -55,6 +55,21 @@ public class PostController {
                 .body("게시글이 등록되었습니다.");
     }
 
+    @Operation(summary = "게시글 수정")
+    @PutMapping(value = "/{postPk}", consumes = "multipart/form-data")
+    public ResponseEntity<String> updatePost(
+            @PathVariable Long postPk,
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @RequestParam("typePk") Long typePk,
+            @RequestParam("ratioPk") Long ratioPk,
+            @RequestParam(value = "hashtags", required = false)
+            List<String> hashtags
+    ) {
+        postService.updatePost(postPk, image, typePk, ratioPk, hashtags);
+
+        return ResponseEntity.ok("게시글이 수정되었습니다.");
+    }
+
     @Operation(summary = "내 게시글 목록 조회")
     @GetMapping("/my")
     public ResponseEntity<Page<PostExploreResponseDto>> getMyPosts(
@@ -67,9 +82,7 @@ public class PostController {
 
         Pageable pageable = PageRequest.of(page, size);
 
-        return ResponseEntity.ok(
-                postService.getMyPosts(pageable)
-        );
+        return ResponseEntity.ok(postService.getMyPosts(pageable));
     }
 
     @Operation(summary = "특정 스타일리스트 게시글 목록 조회")

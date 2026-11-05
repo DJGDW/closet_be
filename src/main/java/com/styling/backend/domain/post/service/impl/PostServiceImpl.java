@@ -48,18 +48,7 @@ public class PostServiceImpl implements PostService {
             Long ratioPk,
             List<String> hashtags
     ) {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof String userId)) {
-            throw new IllegalStateException("로그인이 필요합니다.");
-        }
-
-        Stylist stylist = stylistRepository.findByUser_UserId(userId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("스타일리스트 등록이 필요합니다."));
+        Stylist stylist = getLoginStylist();
 
         if (image == null || image.isEmpty()) {
             throw new IllegalArgumentException("게시글 이미지는 필수입니다.");
@@ -91,6 +80,88 @@ public class PostServiceImpl implements PostService {
             return;
         }
 
+        saveHashtags(post, hashtags);
+    }
+
+    @Override
+    @Transactional
+    public void updatePost(
+            Long postPk,
+            MultipartFile image,
+            Long typePk,
+            Long ratioPk,
+            List<String> hashtags
+    ) {
+        Stylist stylist = getLoginStylist();
+
+        if (postPk == null) {
+            throw new IllegalArgumentException("게시글 번호는 필수입니다.");
+        }
+
+        Post post = postRepository.findById(postPk)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 게시글입니다."));
+
+        if (!post.getStylist().getStylistPk().equals(stylist.getStylistPk())) {
+            throw new IllegalArgumentException("본인의 게시글만 수정할 수 있습니다.");
+        }
+
+        if (typePk == null) {
+            throw new IllegalArgumentException("스타일 태그는 필수입니다.");
+        }
+
+        if (ratioPk == null) {
+            throw new IllegalArgumentException("체형 보완 태그는 필수입니다.");
+        }
+
+        StyleType styleType = styleTypeRepository.findById(typePk)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 스타일 태그입니다."));
+
+        RatioType ratioType = ratioTypeRepository.findById(ratioPk)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("존재하지 않는 체형 보완 태그입니다."));
+
+        String imageUrl = post.getContent();
+
+        if (image != null && !image.isEmpty()) {
+            imageUrl = imageService.uploadImage(image, "stylist/post");
+        }
+
+        post.updatePost(imageUrl, styleType, ratioType);
+
+        if (hashtags != null) {
+            List<PostHashtag> existingRelations =
+                    postHashtagRepository.findByPost_PostPk(postPk);
+
+            for (PostHashtag relation : existingRelations) {
+                relation.getHashtag().decreaseUsed();
+            }
+
+            postHashtagRepository.deleteAll(existingRelations);
+
+            if (!hashtags.isEmpty()) {
+                saveHashtags(post, hashtags);
+            }
+        }
+    }
+
+    private Stylist getLoginStylist() {
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || !(authentication.getPrincipal() instanceof String userId)) {
+            throw new IllegalStateException("로그인이 필요합니다.");
+        }
+
+        return stylistRepository.findByUser_UserId(userId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("스타일리스트 등록이 필요합니다."));
+    }
+
+    private void saveHashtags(Post post, List<String> hashtags) {
         for (String value : hashtags) {
             if (value == null || value.isBlank()) {
                 continue;
@@ -126,18 +197,7 @@ public class PostServiceImpl implements PostService {
     @Override
     @Transactional(readOnly = true)
     public Page<PostExploreResponseDto> getMyPosts(Pageable pageable) {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null
-                || !authentication.isAuthenticated()
-                || !(authentication.getPrincipal() instanceof String userId)) {
-            throw new IllegalStateException("로그인이 필요합니다.");
-        }
-
-        Stylist stylist = stylistRepository.findByUser_UserId(userId)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("스타일리스트 등록이 필요합니다."));
+        Stylist stylist = getLoginStylist();
 
         return getPostsByStylist(stylist.getStylistPk(), pageable);
     }

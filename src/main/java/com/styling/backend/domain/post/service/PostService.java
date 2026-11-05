@@ -16,6 +16,14 @@ public interface PostService {
             List<String> hashtags
     );
 
+    void updatePost(
+            Long postPk,
+            MultipartFile image,
+            Long typePk,
+            Long ratioPk,
+            List<String> hashtags
+    );
+
     Page<PostExploreResponseDto> getMyPosts(Pageable pageable);
 
     Page<PostExploreResponseDto> getStylistPosts(
