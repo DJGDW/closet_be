@@ -1,5 +1,6 @@
 package com.styling.backend.domain.post.service.impl;
 
+import com.styling.backend.domain.notification.service.NotificationService;
 import com.styling.backend.domain.post.dto.PostReactionCountResponseDto;
 import com.styling.backend.domain.post.dto.PostReactionRequestDto;
 import com.styling.backend.domain.post.dto.PostRecommendationResponseDto;
@@ -27,6 +28,7 @@ public class PostReactionServiceImpl implements PostReactionService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final PostReactionMapper postReactionMapper;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -57,9 +59,22 @@ public class PostReactionServiceImpl implements PostReactionService {
                     } else {
                         existingReaction.changeReactionType(reactionType);
                     }
-                }, () -> postReactionRepository.save(
-                        postReactionMapper.toEntity(user, post, requestDto)
-                ));
+                }, () -> {
+                    postReactionRepository.save(
+                            postReactionMapper.toEntity(user, post, requestDto)
+                    );
+
+                    if (reactionType == 0) {
+                        notificationService.createNotification(
+                                post.getStylist().getUser(),
+                                user,
+                                (byte) 0,
+                                user.getNickname() + "님이 회원님의 게시글을 좋아합니다.",
+                                (byte) 0,
+                                post.getPostPk()
+                        );
+                    }
+                });
     }
 
     @Override

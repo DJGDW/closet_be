@@ -4,6 +4,7 @@ import com.styling.backend.domain.follow.dto.FollowResponseDto;
 import com.styling.backend.domain.follow.dto.FollowerResponseDto;
 import com.styling.backend.domain.follow.entity.Follow;
 import com.styling.backend.domain.follow.repository.FollowRepository;
+import com.styling.backend.domain.notification.service.NotificationService;
 import com.styling.backend.domain.stylist.entity.Stylist;
 import com.styling.backend.domain.stylist.repository.StylistRepository;
 import com.styling.backend.domain.user.entity.User;
@@ -23,6 +24,7 @@ public class FollowServiceImpl implements FollowService {
     private final FollowRepository followRepository;
     private final StylistRepository stylistRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Override
     public void followStylist(Long stylistPk) {
@@ -46,6 +48,15 @@ public class FollowServiceImpl implements FollowService {
         }
 
         followRepository.save(new Follow(user, stylist));
+
+        notificationService.createNotification(
+                stylist.getUser(),
+                user,
+                (byte) 2,
+                user.getNickname() + "님이 회원님을 팔로우했습니다.",
+                (byte) 1,
+                stylist.getStylistPk()
+        );
     }
 
     @Override
