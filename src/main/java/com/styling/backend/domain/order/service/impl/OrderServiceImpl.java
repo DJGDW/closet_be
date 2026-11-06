@@ -215,7 +215,13 @@ public class OrderServiceImpl implements OrderService {
                 .findById(orderPk)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
 
-        if (!order.getStylist().getUser().getUserPk().equals(user.getUserPk())) {
+        User stylistUser = order.getStylist().getUser();
+        User buyerUser = order.getUser();
+
+        boolean isStylist = stylistUser.getUserPk().equals(user.getUserPk());
+        boolean isBuyer = buyerUser.getUserPk().equals(user.getUserPk());
+
+        if (!isStylist && !isBuyer) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
@@ -224,13 +230,19 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
-        order.requestServiceCompletion();
+        User receiver = isStylist ? buyerUser : stylistUser;
+
+        order.requestServiceCompletion(user);
+
+        String message = isStylist
+                ? "스타일리스트가 서비스 완료를 요청했습니다."
+                : "구매자가 서비스 완료를 요청했습니다.";
 
         notificationService.createNotification(
-                order.getUser(),
-                order.getStylist().getUser(),
+                receiver,
+                user,
                 (byte) 4,
-                "스타일리스트가 서비스 완료를 요청했습니다.",
+                message,
                 (byte) 3,
                 order.getOrderPk()
         );
@@ -242,14 +254,21 @@ public class OrderServiceImpl implements OrderService {
         User user = getLoginUser();
 
         Order order = orderRepository
-                .findByOrderPkAndUser_UserPk(
-                        orderPk,
-                        user.getUserPk()
-                )
+                .findById(orderPk)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
 
+        User requester = order.getCompletionRequester();
+
         if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
-                || !Byte.valueOf(Order.PROCESS_COMPLETION_REQUESTED).equals(order.getProcessStatus())) {
+                || !Byte.valueOf(Order.PROCESS_COMPLETION_REQUESTED).equals(order.getProcessStatus())
+                || requester == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        boolean isParticipant = order.getUser().getUserPk().equals(user.getUserPk())
+                || order.getStylist().getUser().getUserPk().equals(user.getUserPk());
+
+        if (!isParticipant || requester.getUserPk().equals(user.getUserPk())) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
@@ -259,10 +278,46 @@ public class OrderServiceImpl implements OrderService {
                 .ifPresent(ChatRoom::close);
 
         notificationService.createNotification(
-                order.getStylist().getUser(),
-                order.getUser(),
+                requester,
+                user,
                 (byte) 4,
-                "사용자가 서비스 완료를 수락했습니다.",
+                "상대방이 서비스 완료 요청을 수락했습니다.",
+                (byte) 3,
+                order.getOrderPk()
+        );
+    }
+
+    @Override
+    @Transactional
+    public void rejectOrderCompletion(Long orderPk) {
+        User user = getLoginUser();
+
+        Order order = orderRepository
+                .findById(orderPk)
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        User requester = order.getCompletionRequester();
+
+        if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
+                || !Byte.valueOf(Order.PROCESS_COMPLETION_REQUESTED).equals(order.getProcessStatus())
+                || requester == null) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        boolean isParticipant = order.getUser().getUserPk().equals(user.getUserPk())
+                || order.getStylist().getUser().getUserPk().equals(user.getUserPk());
+
+        if (!isParticipant || requester.getUserPk().equals(user.getUserPk())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        order.rejectServiceCompletion();
+
+        notificationService.createNotification(
+                requester,
+                user,
+                (byte) 4,
+                "상대방이 서비스 완료 요청을 거절했습니다.",
                 (byte) 3,
                 order.getOrderPk()
         );

@@ -42,6 +42,10 @@ public class Order {
     @JoinColumn(name = "stylist_plan_pk", nullable = false)
     private StylistPlan stylistPlan;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "completion_requester_user_pk")
+    private User completionRequester;
+
     @Column(name = "purchase_status")
     private Byte purchaseStatus;
 
@@ -103,13 +107,20 @@ public class Order {
         this.orderStarted = approvedAt;
     }
 
-    public void requestServiceCompletion() {
+    public void requestServiceCompletion(User requester) {
+        this.completionRequester = requester;
         this.processStatus = PROCESS_COMPLETION_REQUESTED;
     }
 
     public void confirmServiceCompletion() {
         this.processStatus = PROCESS_COMPLETED;
         this.orderFinished = Instant.now();
+        this.completionRequester = null;
+    }
+
+    public void rejectServiceCompletion() {
+        this.processStatus = PROCESS_IN_PROGRESS;
+        this.completionRequester = null;
     }
 
     public void upgradePlan(StylistPlan stylistPlan) {

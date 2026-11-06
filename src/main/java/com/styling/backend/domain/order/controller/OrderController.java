@@ -49,7 +49,7 @@ public class OrderController {
         return orderService.cancelPayment(request);
     }
 
-    @Operation(summary = "서비스 완료 요청", description = "스타일리스트가 구매자에게 서비스 완료를 요청합니다.")
+    @Operation(summary = "서비스 완료 요청", description = "구매자 또는 스타일리스트가 상대방에게 서비스 완료를 요청합니다.")
     @PatchMapping("/{orderPk}/complete/request")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void requestOrderCompletion(
@@ -58,13 +58,22 @@ public class OrderController {
         orderService.requestOrderCompletion(orderPk);
     }
 
-    @Operation(summary = "서비스 완료 확인", description = "구매자가 스타일리스트의 완료 요청을 승인하고 주문을 최종 완료합니다.")
+    @Operation(summary = "서비스 완료 승인", description = "완료 요청을 받은 상대방이 승인하여 주문을 최종 완료합니다.")
     @PatchMapping("/{orderPk}/complete/confirm")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void confirmOrderCompletion(
             @PathVariable Long orderPk
     ) {
         orderService.confirmOrderCompletion(orderPk);
+    }
+
+    @Operation(summary = "서비스 완료 거절", description = "완료 요청을 받은 상대방이 거절하여 주문을 진행 상태로 되돌립니다.")
+    @PatchMapping("/{orderPk}/complete/reject")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void rejectOrderCompletion(
+            @PathVariable Long orderPk
+    ) {
+        orderService.rejectOrderCompletion(orderPk);
     }
 
     @Operation(summary = "주문 목록 조회", description = "로그인한 고객의 주문 목록을 최신순으로 조회합니다.")

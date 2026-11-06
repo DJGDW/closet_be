@@ -27,6 +27,8 @@ public interface OrderService {
 
     void confirmOrderCompletion(Long orderPk);
 
+    void rejectOrderCompletion(Long orderPk);
+
     List<OrderListResponseDto> getOrderList();
 
     List<OrderSaleListResponseDto> getSaleList();
