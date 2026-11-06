@@ -8,6 +8,7 @@ import com.styling.backend.domain.order.dto.OrderCreateRequestDto;
 import com.styling.backend.domain.order.dto.OrderCreateResponseDto;
 import com.styling.backend.domain.order.dto.OrderListResponseDto;
 import com.styling.backend.domain.order.dto.OrderSaleListResponseDto;
+import com.styling.backend.domain.order.dto.OrderUpgradePlanResponseDto;
 import com.styling.backend.domain.order.dto.PaymentCancelRequestDto;
 import com.styling.backend.domain.order.dto.PaymentCancelResponseDto;
 import com.styling.backend.domain.order.dto.PaymentConfirmRequestDto;
@@ -521,6 +522,49 @@ public class OrderServiceImpl implements OrderService {
                 (byte) 3,
                 order.getOrderPk()
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrderUpgradePlanResponseDto> getUpgradePlans(Long orderPk) {
+        User user = getLoginUser();
+
+        Order order = orderRepository
+                .findByOrderPkAndUser_UserPk(orderPk, user.getUserPk())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORDER_NOT_FOUND));
+
+        if (Order.PURCHASE_COMPLETED != order.getPurchaseStatus()
+                || !Byte.valueOf(Order.PROCESS_IN_PROGRESS).equals(order.getProcessStatus())) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
+        int currentTier = getPlanTier(
+                order.getStylistPlan().getPlan().getPlanCode()
+        );
+
+        int currentPrice = order.getStylistPlan().getPrice();
+
+        return stylistPlanRepository
+                .findAllByStylist_StylistPk(order.getStylist().getStylistPk())
+                .stream()
+                .filter(stylistPlan ->
+                        getPlanTier(stylistPlan.getPlan().getPlanCode()) > currentTier
+                )
+                .map(stylistPlan -> {
+                    int upgradeAmount = stylistPlan.getPrice() - currentPrice;
+
+                    return new OrderUpgradePlanResponseDto(
+                            stylistPlan.getStylistPlanPk(),
+                            stylistPlan.getPlan().getPlanPk(),
+                            stylistPlan.getPlan().getPlanTier(),
+                            stylistPlan.getPlan().getPlanCode(),
+                            stylistPlan.getPlan().getDescription(),
+                            stylistPlan.getPrice(),
+                            upgradeAmount
+                    );
+                })
+                .filter(plan -> plan.getUpgradeAmount() > 0)
+                .toList();
     }
 
     private int getPlanTier(String planCode) {

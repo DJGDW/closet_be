@@ -4,6 +4,7 @@ import com.styling.backend.domain.order.dto.OrderCreateRequestDto;
 import com.styling.backend.domain.order.dto.OrderCreateResponseDto;
 import com.styling.backend.domain.order.dto.OrderListResponseDto;
 import com.styling.backend.domain.order.dto.OrderSaleListResponseDto;
+import com.styling.backend.domain.order.dto.OrderUpgradePlanResponseDto;
 import com.styling.backend.domain.order.dto.PaymentCancelRequestDto;
 import com.styling.backend.domain.order.dto.PaymentCancelResponseDto;
 import com.styling.backend.domain.order.dto.PaymentConfirmRequestDto;
@@ -86,6 +87,14 @@ public class OrderController {
     @GetMapping("/sales")
     public List<OrderSaleListResponseDto> getSaleList() {
         return orderService.getSaleList();
+    }
+
+    @Operation(summary = "업그레이드 가능 플랜 조회", description = "기존 주문에서 업그레이드할 수 있는 상위 플랜 목록을 조회합니다.")
+    @GetMapping("/{orderPk}/upgrade-plans")
+    public List<OrderUpgradePlanResponseDto> getUpgradePlans(
+            @PathVariable Long orderPk
+    ) {
+        return orderService.getUpgradePlans(orderPk);
     }
 
     @Operation(summary = "플랜 업그레이드 결제 생성", description = "기존 주문의 상위 플랜 업그레이드를 위한 추가 결제 정보를 생성합니다.")
