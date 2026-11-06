@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 @Entity
@@ -113,7 +114,9 @@ public class ChatRoom {
         Instant now = Instant.now();
         this.roomStatus = STATUS_CLOSED;
         this.closedAt = now;
-        this.deleteAfter = now.plus(CLOSED_RETENTION_MONTHS, ChronoUnit.MONTHS);
+        this.deleteAfter = now.atZone(ZoneId.systemDefault())
+                .plusMonths(CLOSED_RETENTION_MONTHS)
+                .toInstant();
     }
 
     public void expire() {
