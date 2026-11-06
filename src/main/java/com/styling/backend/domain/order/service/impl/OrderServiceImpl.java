@@ -341,7 +341,10 @@ public class OrderServiceImpl implements OrderService {
                         order.getPurchaseStatus(),
                         order.getProcessStatus(),
                         order.getOrderStarted(),
-                        order.getOrderFinished()
+                        order.getOrderFinished(),
+                        order.getCompletionRequester() != null
+                                ? order.getCompletionRequester().getUserPk()
+                                : null
                 ))
                 .toList();
     }
@@ -364,7 +367,10 @@ public class OrderServiceImpl implements OrderService {
                         order.getPurchaseStatus(),
                         order.getProcessStatus(),
                         order.getOrderStarted(),
-                        order.getOrderFinished()
+                        order.getOrderFinished(),
+                        order.getCompletionRequester() != null
+                                ? order.getCompletionRequester().getUserPk()
+                                : null
                 ))
                 .toList();
     }

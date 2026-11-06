@@ -19,4 +19,5 @@ public class OrderListResponseDto {
     private Byte processStatus;
     private Instant orderStarted;
     private Instant orderFinished;
+    private Long completionRequesterUserPk;
 }
