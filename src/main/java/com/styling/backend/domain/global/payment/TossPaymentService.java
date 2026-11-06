@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.styling.backend.exception.BusinessException;
 import com.styling.backend.exception.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,9 @@ import java.util.Base64;
 
 @Service
 public class TossPaymentService {
+
+    private static final Logger log =
+            LoggerFactory.getLogger(TossPaymentService.class);
 
     private static final String TOSS_API_URL =
             "https://api.tosspayments.com/v1/payments";
@@ -89,17 +94,17 @@ public class TossPaymentService {
                 (secretKey + ":").getBytes(StandardCharsets.UTF_8)
         );
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(url))
-                .header("Authorization", "Basic " + credentials)
-                .header("Content-Type", "application/json")
-                .method(
-                        method,
-                        HttpRequest.BodyPublishers.ofString(requestBody)
-                )
-                .build();
-
         try {
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Basic " + credentials)
+                    .header("Content-Type", "application/json")
+                    .method(
+                            method,
+                            HttpRequest.BodyPublishers.ofString(requestBody)
+                    )
+                    .build();
+
             HttpResponse<String> response = httpClient.send(
                     request,
                     HttpResponse.BodyHandlers.ofString()
@@ -107,17 +112,36 @@ public class TossPaymentService {
 
             if (response.statusCode() < 200
                     || response.statusCode() >= 300) {
-                throw new BusinessException(
-                        ErrorCode.TOSS_PAYMENT_FAILED
+
+                String errorCode = "UNKNOWN";
+                String errorMessage = response.body();
+
+                try {
+                    JsonNode error = objectMapper.readTree(response.body());
+                    errorCode = error.path("code").asText("UNKNOWN");
+                    errorMessage = error.path("message").asText(response.body());
+                } catch (IOException ignored) {
+                }
+
+                log.error(
+                        "Toss API failed. statusCode={}, code={}, message={}",
+                        response.statusCode(),
+                        errorCode,
+                        errorMessage
                 );
+
+                throw new BusinessException(ErrorCode.TOSS_PAYMENT_FAILED);
             }
 
             return objectMapper.readTree(response.body());
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            log.error("Toss API request interrupted", e);
             throw new BusinessException(ErrorCode.TOSS_PAYMENT_FAILED);
+
         } catch (IOException | IllegalArgumentException e) {
+            log.error("Toss API request error", e);
             throw new BusinessException(ErrorCode.TOSS_PAYMENT_FAILED);
         }
     }
