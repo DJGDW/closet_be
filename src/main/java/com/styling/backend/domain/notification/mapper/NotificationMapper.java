@@ -30,6 +30,10 @@ public class NotificationMapper {
                 .targetType(notification.getTargetType())
                 .targetPk(notification.getTargetPk())
                 .isRead(notification.getReadAt() != null)
+                .important(
+                        notification.getTargetType() != null
+                                && notification.getTargetType() == 2
+                )
                 .createdAt(notification.getCreatedAt())
                 .build();
     }
