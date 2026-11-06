@@ -1,6 +1,7 @@
 package com.styling.backend.domain.chat.scheduler;
 
 import com.styling.backend.domain.chat.entity.ChatRoom;
+import com.styling.backend.domain.chat.repository.ChatMessageImageRepository;
 import com.styling.backend.domain.chat.repository.ChatMessageRepository;
 import com.styling.backend.domain.chat.repository.ChatRoomRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.List;
 public class ChatRoomScheduler {
 
     private final ChatRoomRepository chatRoomRepository;
+    private final ChatMessageImageRepository chatMessageImageRepository;
     private final ChatMessageRepository chatMessageRepository;
 
     @Scheduled(fixedDelay = 300000)
@@ -25,7 +27,10 @@ public class ChatRoomScheduler {
                 chatRoomRepository.findByDeleteAfterLessThanEqual(Instant.now());
 
         for (ChatRoom room : expiredRooms) {
-            chatMessageRepository.deleteByRoomPk(room.getRoomPk());
+            Long roomPk = room.getRoomPk();
+
+            chatMessageImageRepository.deleteByRoomPk(roomPk);
+            chatMessageRepository.deleteByRoomPk(roomPk);
             chatRoomRepository.delete(room);
         }
     }
