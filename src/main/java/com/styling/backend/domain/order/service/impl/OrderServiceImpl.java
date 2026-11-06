@@ -333,6 +333,8 @@ public class OrderServiceImpl implements OrderService {
                 .stream()
                 .map(order -> new OrderListResponseDto(
                         order.getOrderPk(),
+                        order.getUser().getUserPk(),
+                        order.getStylist().getStylistPk(),
                         order.getStylistPlan().getPlan().getPlanTier(),
                         order.getStylist().getUser().getUserName(),
                         order.getStylist().getUser().getNickname(),
@@ -359,6 +361,8 @@ public class OrderServiceImpl implements OrderService {
                 .stream()
                 .map(order -> new OrderSaleListResponseDto(
                         order.getOrderPk(),
+                        order.getUser().getUserPk(),
+                        order.getStylist().getStylistPk(),
                         order.getStylistPlan().getPlan().getPlanTier(),
                         order.getUser().getUserName(),
                         order.getUser().getNickname(),

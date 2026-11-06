@@ -10,6 +10,8 @@ import java.time.Instant;
 public class OrderListResponseDto {
 
     private Long orderPk;
+    private Long userPk;
+    private Long stylistPk;
     private String orderName;
     private String stylistName;
     private String stylistNickname;
