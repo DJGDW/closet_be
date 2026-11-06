@@ -18,5 +18,6 @@ public class NotificationResponseDto {
     private Byte targetType;
     private Long targetPk;
     private boolean isRead;
+    private boolean important;
     private Instant createdAt;
 }
