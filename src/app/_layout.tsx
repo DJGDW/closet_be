@@ -38,6 +38,7 @@ export default function RootLayout() {
                 <Stack.Screen name="stylist/[id]" />
                 <Stack.Screen name="stylist/[id]/portfolio" />
                 <Stack.Screen name="stylist/[id]/payment" />
+                <Stack.Screen name="video-test" />
               </Stack>
             </View>
 
