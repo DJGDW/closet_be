@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -287,6 +288,12 @@ export default function FeedScreen() {
                       pointerEvents="none"
                     />
                   </Pressable>
+
+                  {/* 좋아요 수 */}
+                  <View style={styles.likeBadge} pointerEvents="none">
+                    <Ionicons name="heart-outline" size={13} color="#FFFFFF" />
+                    <Text style={styles.likeCount}>{post.likeCount ?? 0}</Text>
+                  </View>
 
                   {/* 기존 디자인 유지: 하단 정보 영역만 별도 클릭 */}
                   <Pressable

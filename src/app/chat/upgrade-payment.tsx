@@ -9,6 +9,7 @@ import {
   Pressable,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -44,6 +45,16 @@ async function getAccessToken(): Promise<string | null> {
   }
 }
 
+function won(value: number | string | undefined | null) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return `₩${number.toLocaleString("ko-KR")}`;
+}
+
+function firstParam(value?: string | string[]) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default function UpgradePaymentScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
@@ -54,18 +65,11 @@ export default function UpgradePaymentScreen() {
     roomPk?: string;
   }>();
 
-  const orderPk = Array.isArray(params.orderPk)
-    ? params.orderPk[0]
-    : params.orderPk;
-  const currentPlanTier = Array.isArray(params.currentPlanTier)
-    ? params.currentPlanTier[0]
-    : params.currentPlanTier;
-  const stylistName = Array.isArray(params.stylistName)
-    ? params.stylistName[0]
-    : params.stylistName;
-  const roomPk = Array.isArray(params.roomPk)
-    ? params.roomPk[0]
-    : params.roomPk;
+  const orderPk = firstParam(params.orderPk);
+  const currentPlanTier = firstParam(params.currentPlanTier);
+  const currentPrice = firstParam(params.currentPrice);
+  const stylistName = firstParam(params.stylistName);
+  const roomPk = firstParam(params.roomPk);
 
   const [plans, setPlans] = useState<PlanDto[]>([]);
   const [selectedPlanPk, setSelectedPlanPk] = useState<number | null>(null);
@@ -74,10 +78,8 @@ export default function UpgradePaymentScreen() {
   const [errorMessage, setErrorMessage] = useState("");
 
   // 서버가 현재 주문 기준으로 상위 플랜만 반환하므로 별도 등급 판별은 하지 않습니다.
-  const availablePlans = plans;
-
   const selectedPlan =
-    availablePlans.find(
+    plans.find(
       (plan) => Number(plan.stylistPlanPk) === Number(selectedPlanPk),
     ) ?? null;
 
@@ -118,8 +120,6 @@ export default function UpgradePaymentScreen() {
         ? responseData
         : [];
 
-      console.log("업그레이드 가능 플랜 조회 응답:", payload);
-
       setPlans(nextPlans);
       setSelectedPlanPk(
         nextPlans.length > 0 ? Number(nextPlans[0].stylistPlanPk) : null,
@@ -147,6 +147,14 @@ export default function UpgradePaymentScreen() {
 
   const handleUpgradePayment = async () => {
     if (!selectedPlan || !orderPk || paying) return;
+
+    if (Platform.OS !== "web") {
+      Alert.alert(
+        "결제 안내",
+        "현재 토스 결제는 웹 환경에서만 지원돼요. 웹에서 진행해 주세요.",
+      );
+      return;
+    }
 
     try {
       setPaying(true);
@@ -221,76 +229,169 @@ export default function UpgradePaymentScreen() {
     }
   };
 
+  const renderHeader = () => (
+    <View style={styles.header}>
+      <Pressable
+        onPress={() => router.back()}
+        style={styles.back}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="뒤로 가기"
+      >
+        <Ionicons name="chevron-back" size={24} color="#222222" />
+      </Pressable>
+
+      <Text style={styles.headerTitle}>플랜 업그레이드</Text>
+      <View style={styles.back} />
+    </View>
+  );
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.center} edges={["top"]}>
+      <SafeAreaView style={styles.safe} edges={["top"]}>
         <StatusBar barStyle="dark-content" />
-        <ActivityIndicator size="large" color={PURPLE} />
-        <Text style={styles.loadingText}>
-          업그레이드 플랜을 불러오는 중입니다.
-        </Text>
+        {renderHeader()}
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={PURPLE} />
+          <Text style={styles.stateText}>
+            업그레이드 플랜을 불러오는 중이에요.
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
-  return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <StatusBar barStyle="dark-content" />
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="chevron-back" size={26} color="#292633" />
-        </Pressable>
-        <Text style={styles.headerTitle}>플랜 업그레이드</Text>
-        <View style={{ width: 26 }} />
-      </View>
+  // 불러오기 실패 또는 업그레이드할 상위 플랜 없음
+  if (plans.length === 0) {
+    return (
+      <SafeAreaView style={styles.safe} edges={["top"]}>
+        <StatusBar barStyle="dark-content" />
+        {renderHeader()}
+        <View style={styles.center}>
+          <View style={styles.emptyCircle}>
+            <Ionicons name="arrow-up-outline" size={30} color="#9A9A9A" />
+          </View>
+          <Text style={styles.emptyTitle}>업그레이드할 수 없어요</Text>
+          <Text style={styles.stateText}>
+            {errorMessage || "업그레이드할 수 있는 상위 플랜이 없습니다."}
+          </Text>
 
-      <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.emptyActions}>
+            <Pressable style={styles.outlineButton} onPress={loadPlans}>
+              <Text style={styles.outlineButtonText}>다시 시도</Text>
+            </Pressable>
+            <Pressable
+              style={styles.solidSmallButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.solidSmallButtonText}>채팅방으로</Text>
+            </Pressable>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const extraAmount = selectedPlan ? Number(selectedPlan.upgradeAmount) : 0;
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      <StatusBar barStyle="dark-content" />
+      {renderHeader()}
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.subtitle}>
-          {stylistName || "스타일리스트"}님의 서비스 플랜을 변경합니다.
+          {stylistName || "스타일리스트"}님과 진행 중인 서비스 플랜을 더 높은
+          플랜으로 바꿀 수 있어요.
         </Text>
 
-        <View style={styles.currentPlan}>
-          <Text style={styles.smallLabel}>현재 이용 중인 플랜</Text>
-          <Text style={styles.currentPlanName}>{currentPlanTier}</Text>
+        {/* 현재 플랜 */}
+        <View style={styles.currentCard}>
+          <View>
+            <Text style={styles.cardLabel}>현재 이용 중인 플랜</Text>
+            <Text style={styles.currentName}>{currentPlanTier || "-"}</Text>
+          </View>
+
+          {!!currentPrice && (
+            <Text style={styles.currentPrice}>{won(currentPrice)}</Text>
+          )}
         </View>
 
         <Text style={styles.sectionTitle}>업그레이드할 플랜 선택</Text>
 
-        {availablePlans.map((plan) => {
+        {plans.map((plan) => {
           const selected =
             Number(selectedPlanPk) === Number(plan.stylistPlanPk);
+
           return (
             <Pressable
               key={plan.stylistPlanPk}
               onPress={() => setSelectedPlanPk(Number(plan.stylistPlanPk))}
-              style={[styles.planCard, selected && styles.selectedPlanCard]}
+              style={[styles.planCard, selected && styles.planCardSelected]}
+              accessibilityRole="radio"
+              accessibilityState={{ selected }}
             >
-              <View style={styles.radio}>
-                {selected && <View style={styles.radioInner} />}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.planName}>{plan.planTier}</Text>
+              <Ionicons
+                name={selected ? "radio-button-on" : "radio-button-off"}
+                size={21}
+                color={selected ? PURPLE : "#8A8A8A"}
+              />
+
+              <View style={styles.planInfo}>
+                <View style={styles.planTop}>
+                  <Text style={styles.planName}>{plan.planTier}</Text>
+                  <Text style={styles.planPrice}>{won(plan.price)}</Text>
+                </View>
+
                 {!!plan.description && (
                   <Text style={styles.planDescription}>{plan.description}</Text>
                 )}
-                <Text style={styles.planPrice}>
-                  추가 결제 금액 ₩
-                  {Number(plan.upgradeAmount).toLocaleString("ko-KR")}
-                </Text>
+
+                <View style={styles.extraBadge}>
+                  <Text style={styles.extraBadgeText}>
+                    +{won(plan.upgradeAmount)} 추가 결제
+                  </Text>
+                </View>
               </View>
-              {selected && (
-                <Ionicons name="checkmark-circle" size={20} color={PURPLE} />
-              )}
             </Pressable>
           );
         })}
 
-        {!!errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
+        {/* 결제 금액 요약 */}
+        {selectedPlan && (
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>선택한 플랜 가격</Text>
+              <Text style={styles.summaryValue}>{won(selectedPlan.price)}</Text>
+            </View>
 
-        <Text style={styles.notice}>
-          실제 결제 차액은 서버에서 계산합니다. 기존 플랜 가격을 다시 결제하지
-          않습니다.
-        </Text>
+            {!!currentPrice && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>이미 결제한 금액</Text>
+                <Text style={styles.summaryValue}>-{won(currentPrice)}</Text>
+              </View>
+            )}
+
+            <View style={styles.summaryLine} />
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.totalLabel}>추가 결제 금액</Text>
+              <Text style={styles.totalValue}>{won(extraAmount)}</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.notice}>
+          <Text style={styles.noticeText}>
+            기존에 결제한 금액은 차감되고, 차액만 결제돼요.
+          </Text>
+          <Text style={styles.noticeText}>
+            업그레이드는 서비스가 진행 중일 때만 가능해요.
+          </Text>
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -299,107 +400,249 @@ export default function UpgradePaymentScreen() {
           disabled={!selectedPlan || paying}
           style={[
             styles.payButton,
-            (!selectedPlan || paying) && styles.disabledButton,
+            (!selectedPlan || paying) && styles.payButtonDisabled,
           ]}
         >
-          <Text style={styles.payButtonText}>
-            {paying ? "결제창을 여는 중..." : "선택한 플랜으로 업그레이드"}
-          </Text>
+          {paying ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.payButtonText}>
+              {selectedPlan
+                ? `${won(extraAmount)} 결제하고 업그레이드`
+                : "플랜을 선택해 주세요"}
+            </Text>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
-const styles = {
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
-  center: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-  },
-  loadingText: { marginTop: 12, fontSize: 12, color: "#888888" },
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#FFFFFF" },
+
   header: {
     height: 52,
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    justifyContent: "space-between" as const,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#EEEEF1",
+    borderBottomColor: "#EAEAEA",
   },
-  headerTitle: { fontSize: 17, fontWeight: "800" as const, color: "#292633" },
-  content: { padding: 18, paddingBottom: 24 },
-  subtitle: { fontSize: 13, color: "#777481", marginBottom: 18 },
-  currentPlan: {
-    backgroundColor: "#F6F6F7",
+
+  back: { width: 24 },
+
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#222222",
+  },
+
+  content: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 28,
+  },
+
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: "#777777",
+    marginBottom: 18,
+  },
+
+  currentCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F5F3FA",
+    borderWidth: 1,
+    borderColor: "#A9A2C9",
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    marginBottom: 26,
   },
-  smallLabel: { fontSize: 11, color: "#888888" },
-  currentPlanName: {
-    fontSize: 18,
-    fontWeight: "800" as const,
-    color: "#292633",
+
+  cardLabel: { fontSize: 11, color: "#777777" },
+
+  currentName: {
     marginTop: 6,
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#222222",
   },
+
+  currentPrice: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#444444",
+  },
+
   sectionTitle: {
     fontSize: 15,
-    fontWeight: "800" as const,
-    color: "#292633",
+    fontWeight: "800",
+    color: "#222222",
     marginBottom: 12,
   },
+
   planCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
     borderWidth: 1,
-    borderColor: "#E1DEE7",
+    borderColor: "#E0E0E0",
     borderRadius: 12,
     padding: 15,
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
     marginBottom: 10,
+    backgroundColor: "#FFFFFF",
   },
-  selectedPlanCard: {
-    borderWidth: 2,
+
+  planCardSelected: {
+    borderWidth: 1.5,
     borderColor: PURPLE,
-    backgroundColor: "#FAF9FF",
+    backgroundColor: "#F5F3FA",
   },
-  radio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: PURPLE,
-    marginRight: 12,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
+
+  planInfo: { flex: 1 },
+
+  planTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  radioInner: { width: 9, height: 9, borderRadius: 5, backgroundColor: PURPLE },
-  planName: { fontSize: 14, fontWeight: "800" as const, color: "#292633" },
-  planDescription: { fontSize: 11, color: "#777481", marginTop: 5 },
-  planPrice: {
+
+  planName: { fontSize: 15, fontWeight: "800", color: "#222222" },
+
+  planPrice: { fontSize: 14, fontWeight: "700", color: "#222222" },
+
+  planDescription: {
+    marginTop: 6,
     fontSize: 12,
-    fontWeight: "700" as const,
-    color: PURPLE,
-    marginTop: 7,
+    lineHeight: 18,
+    color: "#777777",
   },
-  errorText: { color: "#D14343", fontSize: 12, marginTop: 10 },
-  notice: { color: "#888888", fontSize: 11, lineHeight: 17, marginTop: 16 },
+
+  extraBadge: {
+    alignSelf: "flex-start",
+    marginTop: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 5,
+    backgroundColor: "#E4E1EA",
+    borderWidth: 1,
+    borderColor: "#BDB8C9",
+  },
+
+  extraBadgeText: { fontSize: 11, fontWeight: "700", color: PURPLE },
+
+  summaryCard: {
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "#F4F4F4",
+  },
+
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginVertical: 5,
+  },
+
+  summaryLabel: { fontSize: 12, color: "#777777" },
+
+  summaryValue: { fontSize: 12, fontWeight: "600", color: "#333333" },
+
+  summaryLine: {
+    height: 1,
+    backgroundColor: "#DDDDDD",
+    marginVertical: 8,
+  },
+
+  totalLabel: { fontSize: 13, fontWeight: "700", color: "#222222" },
+
+  totalValue: { fontSize: 18, fontWeight: "800", color: PURPLE },
+
+  notice: { marginTop: 16, gap: 4 },
+
+  noticeText: { fontSize: 11, lineHeight: 17, color: "#999999" },
+
   footer: {
     paddingHorizontal: 18,
     paddingTop: 10,
-    paddingBottom: 12,
+    paddingBottom: 14,
     borderTopWidth: 1,
-    borderTopColor: "#EEEEF1",
+    borderTopColor: "#EAEAEA",
+    backgroundColor: "#FFFFFF",
   },
+
   payButton: {
     height: 52,
     borderRadius: 10,
     backgroundColor: PURPLE,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  disabledButton: { opacity: 0.45 },
-  payButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" as const },
-};
+
+  payButtonDisabled: { opacity: 0.45 },
+
+  payButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 28,
+  },
+
+  stateText: {
+    marginTop: 10,
+    fontSize: 13,
+    lineHeight: 20,
+    color: "#888888",
+    textAlign: "center",
+  },
+
+  emptyCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#F2F2F2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  emptyTitle: {
+    marginTop: 18,
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#222222",
+  },
+
+  emptyActions: { flexDirection: "row", gap: 8, marginTop: 22 },
+
+  outlineButton: {
+    height: 44,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#222222",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  outlineButtonText: { fontSize: 14, fontWeight: "700", color: "#222222" },
+
+  solidSmallButton: {
+    height: 44,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: PURPLE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  solidSmallButtonText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
+});

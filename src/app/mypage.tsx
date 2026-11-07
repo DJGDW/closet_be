@@ -57,8 +57,8 @@ export default function MyPageScreen() {
   const [likedCount, setLikedCount] = useState(0);
   const [purchaseCount, setPurchaseCount] = useState(0);
 
-  // 판매내역 API가 아직 없어 null로 표시
-  const [saleCount] = useState<number | null>(null);
+  // 판매내역 개수 (스타일리스트일 때만 조회)
+  const [saleCount, setSaleCount] = useState<number | null>(null);
 
   const getAccessToken = async () => {
     if (Platform.OS === "web") {
@@ -121,6 +121,33 @@ export default function MyPageScreen() {
 
     checkStylist();
   }, []);
+
+  // 스타일리스트라면 판매내역(결제 완료 건수) 조회
+  useEffect(() => {
+    if (!isStylist) return;
+
+    const fetchSaleCount = async () => {
+      try {
+        const accessToken = await getAccessToken();
+        if (!accessToken) return;
+
+        const response = await fetch(`${API_BASE_URL}/order/sales`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const sales = Array.isArray(data) ? data : [];
+        setSaleCount(
+          sales.filter((sale: any) => Number(sale.purchaseStatus) === 1).length,
+        );
+      } catch (error) {
+        console.error("판매내역 개수 조회 오류:", error);
+      }
+    };
+
+    fetchSaleCount();
+  }, [isStylist]);
 
   // 좋아요 게시물 및 구매내역 개수 조회
   const fetchMenuCounts = useCallback(async () => {
@@ -403,7 +430,7 @@ export default function MyPageScreen() {
             {/* 구매내역 */}
             <Pressable
               style={styles.menuRow}
-              onPress={() => showNotReady("구매내역")}
+              onPress={() => router.push("/purchase-history" as any)}
             >
               <View style={styles.menuLabelArea}>
                 <Text style={styles.menuIcon}>□</Text>
@@ -420,7 +447,7 @@ export default function MyPageScreen() {
             {!checkingStylist && isStylist && (
               <Pressable
                 style={styles.menuRow}
-                onPress={() => showNotReady("판매내역")}
+                onPress={() => router.push("/sales-history" as any)}
               >
                 <View style={styles.menuLabelArea}>
                   <Text style={styles.menuIcon}>□</Text>

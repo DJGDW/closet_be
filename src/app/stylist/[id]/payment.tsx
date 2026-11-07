@@ -17,7 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
 const API_BASE_URL = "http://192.168.219.107:8080";
-const TOSS_CLIENT_KEY = "test_ck_GjLJoQ1aVZ9w1kO6bZ7g3w6KYe2R";
+const TOSS_CLIENT_KEY = "test_ck_c19w7vBoxDeUvpgeSDlJHtMJUy9H7c7XDl";
 const PURPLE = "#51458C";
 
 const PAYMENT_METHODS = [

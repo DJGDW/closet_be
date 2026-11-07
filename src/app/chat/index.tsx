@@ -28,7 +28,12 @@ type ChatRoom = {
   roomStatus: number;
 };
 
-type ChatTab = "active" | "history";
+// 채팅 목록은 "문의하기" / "서비스 진행중" 두 가지만 보여줌
+// (종료된 채팅은 구매내역에서 확인)
+type ChatTab = "inquiry" | "service";
+
+const ROOM_TYPE_PAYMENT = 0;
+const ROOM_TYPE_INQUIRY = 1;
 
 function formatTime(value?: string | null) {
   if (!value) return "";
@@ -59,8 +64,7 @@ export default function ChatListScreen() {
   const router = useRouter();
 
   const [chatList, setChatList] = useState<ChatRoom[]>([]);
-  const [historyList, setHistoryList] = useState<ChatRoom[]>([]);
-  const [tab, setTab] = useState<ChatTab>("active");
+  const [tab, setTab] = useState<ChatTab>("inquiry");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -74,7 +78,6 @@ export default function ChatListScreen() {
       if (!token) {
         setError("로그인이 필요합니다.");
         setChatList([]);
-        setHistoryList([]);
         return;
       }
 
@@ -83,37 +86,25 @@ export default function ChatListScreen() {
         "Content-Type": "application/json",
       };
 
-      const [activeResponse, historyResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/chat/rooms`, { method: "GET", headers }),
-        fetch(`${API_BASE_URL}/chat/rooms/history`, { method: "GET", headers }),
-      ]);
+      // 활성 채팅방만 조회 (종료된 채팅은 구매내역에서 연결)
+      const activeResponse = await fetch(`${API_BASE_URL}/chat/rooms`, {
+        method: "GET",
+        headers,
+      });
 
-      if (
-        activeResponse.status === 401 ||
-        activeResponse.status === 403 ||
-        historyResponse.status === 401 ||
-        historyResponse.status === 403
-      ) {
+      if (activeResponse.status === 401 || activeResponse.status === 403) {
         setError("로그인 인증이 만료되었습니다. 다시 로그인해주세요.");
         setChatList([]);
-        setHistoryList([]);
         return;
       }
 
       if (!activeResponse.ok) {
-        throw new Error(`진행 중 채팅 조회 실패 (${activeResponse.status})`);
-      }
-      if (!historyResponse.ok) {
-        throw new Error(`종료된 채팅 조회 실패 (${historyResponse.status})`);
+        throw new Error(`채팅 목록 조회 실패 (${activeResponse.status})`);
       }
 
-      const [activeData, historyData] = await Promise.all([
-        activeResponse.json(),
-        historyResponse.json(),
-      ]);
+      const activeData = await activeResponse.json();
 
       setChatList(Array.isArray(activeData) ? activeData : []);
-      setHistoryList(Array.isArray(historyData) ? historyData : []);
     } catch (e) {
       console.error("채팅 목록 조회 오류:", e);
       setError(
@@ -134,7 +125,18 @@ export default function ChatListScreen() {
     fetchChatRooms();
   };
 
-  const displayedList = tab === "active" ? chatList : historyList;
+  const inquiryList = chatList.filter(
+    (room) => Number(room.roomType) === ROOM_TYPE_INQUIRY,
+  );
+  const serviceList = chatList.filter(
+    (room) => Number(room.roomType) === ROOM_TYPE_PAYMENT,
+  );
+
+  const displayedList = tab === "inquiry" ? inquiryList : serviceList;
+
+  // 탭에 읽지 않은 메시지가 있으면 점으로 표시
+  const hasUnread = (list: ChatRoom[]) =>
+    list.some((room) => Number(room.unreadCount) > 0);
 
   if (loading) {
     return (
@@ -150,27 +152,32 @@ export default function ChatListScreen() {
 
       <View style={styles.tabs}>
         <Pressable
-          style={[styles.tab, tab === "active" && styles.selectedTab]}
-          onPress={() => setTab("active")}
-        >
-          <Text
-            style={[styles.tabText, tab === "active" && styles.selectedTabText]}
-          >
-            진행 중
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.tab, tab === "history" && styles.selectedTab]}
-          onPress={() => setTab("history")}
+          style={[styles.tab, tab === "inquiry" && styles.selectedTab]}
+          onPress={() => setTab("inquiry")}
         >
           <Text
             style={[
               styles.tabText,
-              tab === "history" && styles.selectedTabText,
+              tab === "inquiry" && styles.selectedTabText,
             ]}
           >
-            종료된 상담
+            문의하기
           </Text>
+          {hasUnread(inquiryList) && <View style={styles.tabDot} />}
+        </Pressable>
+        <Pressable
+          style={[styles.tab, tab === "service" && styles.selectedTab]}
+          onPress={() => setTab("service")}
+        >
+          <Text
+            style={[
+              styles.tabText,
+              tab === "service" && styles.selectedTabText,
+            ]}
+          >
+            서비스 진행중
+          </Text>
+          {hasUnread(serviceList) && <View style={styles.tabDot} />}
         </Pressable>
       </View>
 
@@ -192,7 +199,7 @@ export default function ChatListScreen() {
                   roomPk: String(item.roomPk),
                   orderPk: item.orderPk != null ? String(item.orderPk) : "",
                   name: item.opponentNickname,
-                  readOnly: tab === "history" ? "true" : "false",
+                  readOnly: "false",
                 },
               })
             }
@@ -216,7 +223,7 @@ export default function ChatListScreen() {
                   {item.lastMessage || "상담을 시작해 보세요."}
                 </Text>
 
-                {tab === "active" && item.unreadCount > 0 && (
+                {item.unreadCount > 0 && (
                   <View style={styles.unreadBadge}>
                     <Text style={styles.unreadText}>
                       {item.unreadCount > 99 ? "99+" : item.unreadCount}
@@ -230,9 +237,9 @@ export default function ChatListScreen() {
         ListEmptyComponent={() =>
           !error ? (
             <Text style={styles.emptyText}>
-              {tab === "active"
-                ? "아직 진행 중인 상담이 없습니다."
-                : "종료된 상담 내역이 없습니다."}
+              {tab === "inquiry"
+                ? "진행 중인 문의 채팅이 없습니다."
+                : "진행 중인 서비스 채팅이 없습니다.\n종료된 채팅은 구매내역에서 확인할 수 있어요."}
             </Text>
           ) : null
         }
@@ -269,6 +276,9 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 5,
     alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 2,
@@ -285,6 +295,12 @@ const styles = StyleSheet.create({
   selectedTabText: {
     color: PURPLE,
     fontWeight: "bold",
+  },
+  tabDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#F04438",
   },
   errorText: {
     color: "#D32F2F",
@@ -356,6 +372,7 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: "center",
     color: "#999999",
+    lineHeight: 21,
     marginTop: 50,
   },
 });

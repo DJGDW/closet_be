@@ -103,6 +103,24 @@ export const styles = StyleSheet.create({
     height: "26%",
   },
 
+  likeBadge: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 13,
+    backgroundColor: "rgba(0,0,0,0.42)",
+  },
+  likeCount: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+
   stylistInfo: {
     position: "absolute",
     left: 8,

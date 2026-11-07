@@ -38,6 +38,7 @@ type OrderInfo = {
   processStatus: number;
   completionRequesterUserPk: number | null;
   orderName?: string;
+  price?: number;
   isBuyer: boolean;
 };
 
@@ -209,6 +210,7 @@ export default function ChatRoomScreen() {
             processStatus: order.processStatus,
             completionRequesterUserPk: order.completionRequesterUserPk ?? null,
             orderName: order.orderName,
+            price: order.price,
             isBuyer: true,
           };
         }
@@ -225,6 +227,7 @@ export default function ChatRoomScreen() {
             processStatus: order.processStatus,
             completionRequesterUserPk: order.completionRequesterUserPk ?? null,
             orderName: order.orderName,
+            price: order.price,
             isBuyer: false,
           };
         }
@@ -446,6 +449,26 @@ export default function ChatRoomScreen() {
       console.error("카메라 실행 오류:", error);
       showMessage("오류", "카메라를 실행하지 못했어요.");
     }
+  };
+
+  // 플랜 업그레이드: 구매자 + 서비스 진행 중(processStatus 1)일 때만 가능
+  const canUpgradePlan =
+    !!orderInfo && orderInfo.isBuyer && orderInfo.processStatus === 1;
+
+  const goToUpgradePlan = () => {
+    if (!orderInfo) return;
+    setShowExtras(false);
+
+    router.push({
+      pathname: "/chat/upgrade-payment",
+      params: {
+        orderPk: String(orderInfo.orderPk),
+        currentPlanTier: String(orderInfo.orderName || ""),
+        currentPrice: String(orderInfo.price ?? ""),
+        stylistName: String(name || "스타일리스트"),
+        roomPk: String(roomId || ""),
+      },
+    } as any);
   };
 
   const startVideoCall = () => {
@@ -971,6 +994,17 @@ export default function ChatRoomScreen() {
             <Ionicons name="videocam-outline" size={25} color={PURPLE} />
             <Text style={styles.extraLabel}>영상통화</Text>
           </Pressable>
+
+          {canUpgradePlan && (
+            <Pressable style={styles.extraItem} onPress={goToUpgradePlan}>
+              <Ionicons
+                name="arrow-up-circle-outline"
+                size={25}
+                color={PURPLE}
+              />
+              <Text style={styles.extraLabel}>업그레이드</Text>
+            </Pressable>
+          )}
         </View>
       )}
     </KeyboardAvoidingView>
