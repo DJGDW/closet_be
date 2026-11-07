@@ -1,3 +1,4 @@
+
 import { Stack, usePathname } from "expo-router";
 import { View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -38,7 +39,7 @@ export default function RootLayout() {
                 <Stack.Screen name="stylist/[id]" />
                 <Stack.Screen name="stylist/[id]/portfolio" />
                 <Stack.Screen name="stylist/[id]/payment" />
-                <Stack.Screen name="webrtc-test" />
+                <Stack.Screen name="video-test" />
               </Stack>
             </View>
 

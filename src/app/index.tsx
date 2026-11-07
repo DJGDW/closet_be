@@ -145,6 +145,20 @@ export default function LoginScreen() {
             {isLoggingIn ? "로그인 중..." : "로그인"}
           </Text>
         </Pressable>
+        <Pressable
+  style={{
+    backgroundColor: "#222222",
+    padding: 14,
+    borderRadius: 10,
+    marginTop: 12,
+    alignItems: "center",
+  }}
+  onPress={() => router.push("/video-test")}
+>
+  <Text style={{ color: "#FFFFFF", fontWeight: "bold" }}>
+    영상통화 테스트
+  </Text>
+</Pressable>
 
         <View style={styles.links}>
           <Pressable onPress={() => setMessage("아이디 찾기는 준비 중입니다.")}>
