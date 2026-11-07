@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { styles } from "../styles/mypage.styles";
 
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 type LoginUser = {
   userPk?: number;

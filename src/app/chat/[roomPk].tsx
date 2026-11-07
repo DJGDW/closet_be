@@ -1,3 +1,4 @@
+
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   View,
@@ -15,9 +16,10 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const PURPLE = "#8B5CF6";
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 type ChatMessage = {
   msgPk: number;
@@ -70,6 +72,7 @@ function formatTime(value: string) {
 }
 
 export default function ChatRoomScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const { roomPk, name, readOnly } = useLocalSearchParams<{
@@ -94,7 +97,9 @@ export default function ChatRoomScreen() {
     "idle" | "waiting" | "incoming"
   >("idle");
 
-  // 상담 종료 API 연결 전: 화면 확인용 임시 처리
+  const [selectedImage, setSelectedImage] =
+    useState<ImagePicker.ImagePickerAsset | null>(null);
+
   const requestServiceClose = () => {
     const confirmClose = () => {
       setCloseRequestState("waiting");
@@ -117,7 +122,6 @@ export default function ChatRoomScreen() {
     }
   };
 
-  // 상담 종료 요청 취소 (API 연결 전 화면 상태만 초기화)
   const cancelServiceClose = () => {
     setCloseRequestState("idle");
   };
@@ -129,7 +133,6 @@ export default function ChatRoomScreen() {
         name: String(name || "스타일리스트"),
         stylistName: String(name || "스타일리스트"),
         roomPk: String(roomId || ""),
-        // API 연결 전 미리보기에서는 임시 값 사용
         orderPk: "1",
         serviceName: "BASIC 스타일링 서비스",
         useDate: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
@@ -204,9 +207,6 @@ export default function ChatRoomScreen() {
     fetchMessages();
     markAsRead();
   }, [fetchMessages, markAsRead]);
-
-  const [selectedImage, setSelectedImage] =
-    useState<ImagePicker.ImagePickerAsset | null>(null);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -321,6 +321,7 @@ export default function ChatRoomScreen() {
               },
             ]);
           });
+
     if (!confirmed) return;
 
     setProcessingMessage(true);
@@ -416,8 +417,8 @@ export default function ChatRoomScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={90}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -476,10 +477,12 @@ export default function ChatRoomScreen() {
         </View>
       ) : (
         <FlatList
+          style={styles.flatList}
           data={messages}
           keyExtractor={(item) => String(item.msgPk)}
           contentContainerStyle={styles.messageList}
           inverted={false}
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
             const isMine = myUserPk !== null && item.senderPk === myUserPk;
 
@@ -643,7 +646,12 @@ export default function ChatRoomScreen() {
       )}
 
       {!isReadOnly && (
-        <View style={styles.inputContainer}>
+        <View
+          style={[
+            styles.inputContainer,
+            { paddingBottom: 10 + insets.bottom },
+          ]}
+        >
           <Pressable style={styles.imageButton} onPress={pickImage}>
             <Text style={styles.imageButtonText}>＋</Text>
           </Pressable>
@@ -655,6 +663,8 @@ export default function ChatRoomScreen() {
             value={input}
             onChangeText={setInput}
             multiline
+            blurOnSubmit={false}
+            returnKeyType="default"
           />
 
           <Pressable
@@ -694,6 +704,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderBottomWidth: 1,
     borderBottomColor: "#EEEEEE",
+    flexShrink: 0,
   },
   backButton: {
     marginRight: 16,
@@ -734,9 +745,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
   },
+  flatList: {
+    flex: 1,
+  },
   messageList: {
     padding: 16,
     paddingBottom: 20,
+    flexGrow: 1,
   },
   messageWrapper: {
     flexDirection: "row",
@@ -860,6 +875,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#EEEEEE",
     backgroundColor: "#FFFFFF",
+    flexShrink: 0,
   },
   textInput: {
     flex: 1,
@@ -877,6 +893,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 10,
     backgroundColor: "#FFFFFF",
+    flexShrink: 0,
   },
   imagePreview: {
     width: 100,
@@ -955,6 +972,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F1FA",
     borderRadius: 12,
     alignItems: "center",
+    flexShrink: 0,
   },
   closeIncomingBanner: {
     marginHorizontal: 16,

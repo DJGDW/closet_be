@@ -1,3 +1,4 @@
+
 import { StyleSheet } from "react-native";
 
 export const COLORS = {
@@ -7,7 +8,7 @@ export const COLORS = {
   border: "#EEEEEE",
   placeholder: "#F2F2F2",
   purple: "#8B5CF6",
-  subpurple: "#4d458b"
+  subpurple: "#4d458b",
 };
 
 export const styles = StyleSheet.create({
@@ -119,14 +120,25 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.9)",
   },
-  stylistTextArea: { flex: 1, minWidth: 0, justifyContent: "center" },
+
+  stylistTextArea: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: "center",
+  },
+
   stylistName: {
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 2,
   },
-  stylistStyle: { color: "#FFFFFF", fontSize: 10, fontWeight: "400" },
+
+  stylistStyle: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "400",
+  },
 
   bottomNav: {
     height: 66,

@@ -13,7 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 export default function ReviewScreen() {
   const router = useRouter();
@@ -59,7 +59,7 @@ export default function ReviewScreen() {
 
       if (!accessToken) {
         Alert.alert("로그인 필요", "로그인 후 리뷰를 작성해 주세요.");
-        router.replace("/login");
+        router.replace("./index");
         return;
       }
 
@@ -100,7 +100,7 @@ export default function ReviewScreen() {
             "인증 오류",
             "로그인이 만료되었습니다. 다시 로그인해 주세요.",
           );
-          router.replace("/login");
+          router.replace("./index");
           return;
         }
 

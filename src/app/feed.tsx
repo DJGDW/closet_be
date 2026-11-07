@@ -1,3 +1,4 @@
+
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -14,14 +15,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import BellIcon from "../../assets/icons/bell.svg";
 import PlusIcon from "../../assets/icons/plusicon.svg";
 
 import { styles } from "../styles/feed.styles";
 
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 type FeedPost = {
   postPk: number;
@@ -42,11 +43,61 @@ type RecommendedResponse = {
   posts?: FeedPost[];
 };
 
+type UnreadCountResponse = {
+  unreadCount: number;
+};
+
 export default function FeedScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const getAccessToken = async () => {
+    if (Platform.OS === "web") {
+      return localStorage.getItem("accessToken");
+    }
+
+    return await SecureStore.getItemAsync("accessToken");
+  };
+
+  // 읽지 않은 알림 개수 조회
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+
+      if (!token) {
+        setUnreadCount(0);
+        return;
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/notification/unread-count`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`알림 개수 조회 실패: HTTP ${response.status}`);
+      }
+
+      const result: UnreadCountResponse = await response.json();
+
+      setUnreadCount(
+        typeof result.unreadCount === "number"
+          ? Math.max(0, result.unreadCount)
+          : 0,
+      );
+    } catch (error) {
+      console.error("읽지 않은 알림 개수 조회 오류:", error);
+    }
+  }, []);
 
   const fetchRecommendedPosts = useCallback(async () => {
     setErrorMessage("");
@@ -123,12 +174,19 @@ export default function FeedScreen() {
     fetchRecommendedPosts();
   }, [fetchRecommendedPosts]);
 
+  // 피드 화면에 다시 진입할 때 알림 개수 갱신
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+    }, [fetchUnreadCount]),
+  );
+
   const handleRefresh = () => {
     setRefreshing(true);
     fetchRecommendedPosts();
+    fetchUnreadCount();
   };
 
-  // 게시물 이미지 클릭 → 게시물 상세 페이지
   const handlePostPress = (post: FeedPost) => {
     router.push({
       pathname: "/post/[postPk]",
@@ -139,7 +197,6 @@ export default function FeedScreen() {
     });
   };
 
-  // 스타일리스트 정보 클릭 → 기존 스타일리스트 소개 페이지
   const handleStylistPress = (post: FeedPost) => {
     if (post.stylistPk == null) {
       Alert.alert("안내", "스타일리스트 정보를 확인할 수 없습니다.");
@@ -152,6 +209,10 @@ export default function FeedScreen() {
         id: String(post.stylistPk),
       },
     });
+  };
+
+  const handleNotificationPress = () => {
+    router.push("/notification");
   };
 
   return (
@@ -180,11 +241,42 @@ export default function FeedScreen() {
 
             <Pressable
               style={styles.headerIconButton}
-              onPress={() => Alert.alert("알림", "알림 화면은 준비 중이에요.")}
+              onPress={handleNotificationPress}
               accessibilityRole="button"
-              accessibilityLabel="알림"
+              accessibilityLabel={`알림 ${unreadCount}개`}
             >
-              <BellIcon width={23} height={23} />
+              <View>
+                <BellIcon width={23} height={23} />
+
+                {unreadCount > 0 && (
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -8,
+                      right: -10,
+                      minWidth: 18,
+                      height: 18,
+                      paddingHorizontal: 4,
+                      borderRadius: 10,
+                      backgroundColor: "#E53935",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: 1,
+                      borderColor: "#FFFFFF",
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "#FFFFFF",
+                        fontSize: 10,
+                        fontWeight: "700",
+                      }}
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </Pressable>
           </View>
         </View>
@@ -266,7 +358,6 @@ export default function FeedScreen() {
             <View style={styles.feedGrid}>
               {posts.map((post) => (
                 <View key={post.postPk} style={styles.postCard}>
-                  {/* 이미지 영역: 게시물 상세 페이지 */}
                   <Pressable
                     onPress={() => handlePostPress(post)}
                     accessibilityRole="button"
@@ -292,7 +383,6 @@ export default function FeedScreen() {
                     />
                   </Pressable>
 
-                  {/* 기존 디자인 유지: 하단 정보 영역만 별도 클릭 */}
                   <Pressable
                     style={[
                       styles.stylistInfo,

@@ -17,7 +17,7 @@ import { router } from "expo-router";
 
 import { styles } from "../styles/feed.styles";
 
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 type LikedPost = {
   postPk: number;

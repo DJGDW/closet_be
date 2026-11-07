@@ -47,3 +47,7 @@ Thumbs.db
 
 expo-env.d.ts
 # @end expo-cli
+
+# Expo Prebuild generated native projects
+/android/
+/ios/
