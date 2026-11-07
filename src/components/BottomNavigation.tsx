@@ -99,7 +99,7 @@ export default function BottomNavigation() {
             accessibilityLabel={TAB_LABELS[tab]}
             accessibilityState={{ selected: isActive }}
           >
-            <Icon width={36} height={36} />
+            <Icon width={24} height={38} />
           </Pressable>
         );
       })}

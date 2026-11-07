@@ -12,7 +12,10 @@ import {
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
 const API_BASE_URL = "http://192.168.219.107:8080";
@@ -76,10 +79,12 @@ async function getAccessToken(): Promise<string | null> {
 
 export default function StylistProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [stylist, setStylist] = useState<StylistDetailResponse | null>(null);
+  const [introExpanded, setIntroExpanded] = useState(false);
 
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState("");
@@ -450,40 +455,30 @@ export default function StylistProfileScreen() {
   const visiblePortfolios = portfolios.slice(0, 3);
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-      edges={["top"]}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={[]}>
       <StatusBar barStyle="dark-content" />
 
-      {/* 상단 헤더 */}
-      <View
+      {/* 뒤로 가기 (대표 이미지 위에 겹쳐서 표시) */}
+      <Pressable
+        onPress={() => router.back()}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="뒤로 가기"
         style={{
-          height: 48,
-          flexDirection: "row",
+          position: "absolute",
+          top: insets.top + 8,
+          left: 12,
+          zIndex: 10,
+          width: 34,
+          height: 34,
+          borderRadius: 17,
           alignItems: "center",
-          paddingHorizontal: 16,
-          borderBottomWidth: 1,
-          borderBottomColor: "#F0EEF4",
+          justifyContent: "center",
+          backgroundColor: "rgba(255,255,255,0.75)",
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="chevron-back" size={26} color="#292633" />
-        </Pressable>
-
-        <Text
-          style={{
-            flex: 1,
-            textAlign: "center",
-            marginRight: 26,
-            fontSize: 16,
-            fontWeight: "700",
-            color: "#292633",
-          }}
-        >
-          스타일리스트 프로필
-        </Text>
-      </View>
+        <Ionicons name="chevron-back" size={24} color="#292633" />
+      </Pressable>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -495,8 +490,8 @@ export default function StylistProfileScreen() {
             source={{ uri: stylist.profilePic }}
             style={{
               width: "100%",
-              height: 190,
-              backgroundColor: "#E7E5EC",
+              height: 210 + insets.top,
+              backgroundColor: "#E2E2E2",
             }}
             resizeMode="cover"
           />
@@ -504,8 +499,8 @@ export default function StylistProfileScreen() {
           <View
             style={{
               width: "100%",
-              height: 190,
-              backgroundColor: "#E7E5EC",
+              height: 210 + insets.top,
+              backgroundColor: "#E2E2E2",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -534,7 +529,7 @@ export default function StylistProfileScreen() {
             >
               <Text
                 style={{
-                  fontSize: 20,
+                  fontSize: 22,
                   fontWeight: "800",
                   color: "#292633",
                 }}
@@ -542,7 +537,7 @@ export default function StylistProfileScreen() {
                 {stylist.nickname}
               </Text>
 
-              <Ionicons name="checkmark-circle" size={17} color="#4A9AC8" />
+              <Ionicons name="checkmark-circle" size={19} color="#3D91A8" />
             </View>
 
             <Pressable
@@ -608,13 +603,13 @@ export default function StylistProfileScreen() {
               <View
                 key={style.typePk}
                 style={{
-                  backgroundColor: "#F1EEFC",
+                  backgroundColor: "#F0F0F0",
                   borderRadius: 14,
-                  paddingHorizontal: 10,
+                  paddingHorizontal: 11,
                   paddingVertical: 5,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#51458C" }}>
+                <Text style={{ fontSize: 11, color: "#666666" }}>
                   #{style.styleName}
                 </Text>
               </View>
@@ -630,9 +625,9 @@ export default function StylistProfileScreen() {
               marginTop: 10,
             }}
           >
-            <Ionicons name="star" size={15} color="#F5A623" />
+            <Ionicons name="star" size={17} color="#F5A623" />
 
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#292633" }}>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: "#292633" }}>
               {(stylist.rating ?? 0).toFixed(1)}
             </Text>
           </View>
@@ -684,9 +679,24 @@ export default function StylistProfileScreen() {
             자기소개
           </Text>
 
-          <Text style={{ fontSize: 12, lineHeight: 19, color: "#66636E" }}>
+          <Text
+            style={{ fontSize: 12, lineHeight: 19, color: "#66636E" }}
+            numberOfLines={introExpanded ? undefined : 4}
+          >
             {stylist.introduction || "등록된 자기소개가 없습니다."}
           </Text>
+
+          {(stylist.introduction ?? "").length > 90 && (
+            <Pressable
+              onPress={() => setIntroExpanded((current) => !current)}
+              hitSlop={8}
+              style={{ alignSelf: "flex-end", marginTop: 4 }}
+            >
+              <Text style={{ fontSize: 11, color: "#898692" }}>
+                {introExpanded ? "접기" : "더보기"}
+              </Text>
+            </Pressable>
+          )}
 
           <View
             style={{
@@ -705,7 +715,7 @@ export default function StylistProfileScreen() {
               marginBottom: 10,
             }}
           >
-            제공 서비스
+            서비스 등급
           </Text>
 
           {services.length === 0 ? (
@@ -876,14 +886,14 @@ export default function StylistProfileScreen() {
               </Text>
             </View>
           ) : (
-            <View style={{ flexDirection: "row", gap: 7 }}>
+            <View style={{ flexDirection: "row", gap: 8 }}>
               {visiblePortfolios.map((post) => (
                 <Pressable
                   key={post.postPk}
                   style={{
                     flex: 1,
-                    height: 120,
-                    borderRadius: 7,
+                    height: 76,
+                    borderRadius: 4,
                     overflow: "hidden",
                     backgroundColor: "#E7E5EC",
                   }}
@@ -917,14 +927,14 @@ export default function StylistProfileScreen() {
           onPress={() => {}}
           style={{
             flex: 1,
-            height: 46,
+            height: 44,
             borderRadius: 8,
-            backgroundColor: "#F1EEFC",
+            backgroundColor: "#F2F2F2",
             alignItems: "center",
             justifyContent: "center",
           }}
         >
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#51458C" }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#333333" }}>
             문의하기
           </Text>
         </Pressable>
@@ -933,8 +943,8 @@ export default function StylistProfileScreen() {
           onPress={goToPayment}
           disabled={!selectedServiceData}
           style={{
-            flex: 1.6,
-            height: 46,
+            flex: 1.5,
+            height: 44,
             borderRadius: 8,
             backgroundColor: selectedServiceData ? "#51458C" : "#BDB9CA",
             alignItems: "center",

@@ -1,0 +1,97 @@
+package com.styling.backend.domain.user.entity;
+
+import jakarta.persistence.*;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+
+@Entity
+@Table(name = "user_body")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class UserBody {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "body_pk")
+    private Long bodyPk;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_pk", nullable = false)
+    private User user;
+
+    @Column(name = "tall", nullable = false)
+    private Integer tall;
+
+    @Column(name = "weight", nullable = false, precision = 4, scale = 1)
+    private BigDecimal weight;
+
+    @Column(name = "chest_size")
+    private Integer chestSize;
+
+    @Column(name = "waist_size")
+    private Integer waistSize;
+
+    @Column(name = "shoulder_width")
+    private Integer shoulderWidth;
+
+    @Column(name = "hips")
+    private Integer hips;
+
+    @Column(name = "thigh")
+    private Integer thigh;
+
+    @Column(name = "calf")
+    private Integer calf;
+
+    @Column(name = "leg")
+    private Integer leg;
+
+    public UserBody(
+            User user,
+            Integer tall,
+            BigDecimal weight,
+            Integer chestSize,
+            Integer waistSize,
+            Integer shoulderWidth,
+            Integer hips,
+            Integer thigh,
+            Integer calf,
+            Integer leg
+    ) {
+        this.user = user;
+        this.tall = tall;
+        this.weight = weight;
+        this.chestSize = chestSize;
+        this.waistSize = waistSize;
+        this.shoulderWidth = shoulderWidth;
+        this.hips = hips;
+        this.thigh = thigh;
+        this.calf = calf;
+        this.leg = leg;
+    }
+
+    public void updateInfo(
+            Integer tall,
+            BigDecimal weight,
+            Integer chestSize,
+            Integer waistSize,
+            Integer shoulderWidth,
+            Integer hips,
+            Integer thigh,
+            Integer calf,
+            Integer leg
+    ) {
+        if (tall != null) this.tall = tall;
+        if (weight != null) this.weight = weight;
+        if (chestSize != null) this.chestSize = chestSize;
+        if (waistSize != null) this.waistSize = waistSize;
+        if (shoulderWidth != null) this.shoulderWidth = shoulderWidth;
+        if (hips != null) this.hips = hips;
+        if (thigh != null) this.thigh = thigh;
+        if (calf != null) this.calf = calf;
+        if (leg != null) this.leg = leg;
+    }
+}

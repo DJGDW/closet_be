@@ -17,6 +17,7 @@ const API_BASE_URL = "http://192.168.219.107:8080";
 
 type ChatRoom = {
   roomPk: number;
+  orderPk: number | null;
   opponentNickname: string;
   opponentProfilePic?: string | null;
   lastMessage?: string | null;
@@ -189,6 +190,7 @@ export default function ChatListScreen() {
                 pathname: "/chat/[roomPk]",
                 params: {
                   roomPk: String(item.roomPk),
+                  orderPk: item.orderPk != null ? String(item.orderPk) : "",
                   name: item.opponentNickname,
                   readOnly: tab === "history" ? "true" : "false",
                 },

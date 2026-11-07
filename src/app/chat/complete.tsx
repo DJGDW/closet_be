@@ -20,14 +20,24 @@ export default function StylingCompleteScreen() {
     stylistName: stylistNameParam,
     roomPk,
     orderPk,
+    serviceName: serviceNameParam,
+    useDate,
+    method,
   } = useLocalSearchParams<{
     name?: string;
     stylistName?: string;
     roomPk?: string;
     orderPk?: string;
+    serviceName?: string;
+    useDate?: string;
+    method?: string;
   }>();
 
   const stylistName = stylistNameParam || name || "스타일리스트";
+  const serviceName = serviceNameParam || "BASIC 스타일링 서비스";
+  const usedDate =
+    useDate || new Date().toISOString().slice(0, 10).replace(/-/g, ".");
+  const serviceMethod = method || "채팅 상담";
 
   const handleLater = () => router.replace("/chat");
 
@@ -46,6 +56,7 @@ export default function StylingCompleteScreen() {
         name: stylistName,
         roomPk: String(roomPk || ""),
         orderPk: String(orderPk),
+        serviceName,
       },
     });
   };
@@ -92,7 +103,7 @@ export default function StylingCompleteScreen() {
               </Text>
 
               <View style={styles.tags}>
-                <Text style={styles.tag}>트렌디한</Text>
+                <Text style={styles.tag}>미니멀</Text>
                 <Text style={styles.tag}>캐주얼</Text>
                 <Text style={styles.tag}>데일리룩</Text>
               </View>
@@ -103,19 +114,17 @@ export default function StylingCompleteScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>이용한 서비스</Text>
-            <Text style={styles.infoValue}>BASIC 스타일링 서비스</Text>
+            <Text style={styles.infoValue}>{serviceName}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>이용일</Text>
-            <Text style={styles.infoValue}>
-              {new Date().toLocaleDateString("ko-KR")}
-            </Text>
+            <Text style={styles.infoValue}>{usedDate}</Text>
           </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>진행 방식</Text>
-            <Text style={styles.infoValue}>채팅 상담</Text>
+            <Text style={styles.infoValue}>{serviceMethod}</Text>
           </View>
         </View>
 
@@ -173,22 +182,22 @@ const styles = StyleSheet.create({
   },
 
   checkCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderWidth: 1,
     borderColor: "#A9A2C9",
     backgroundColor: "#F7F5FC",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 16,
   },
 
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "800",
     color: "#222222",
-    marginBottom: 8,
+    marginBottom: 10,
   },
 
   subtitle: {
@@ -208,9 +217,10 @@ const styles = StyleSheet.create({
   },
 
   cardLabel: {
-    fontSize: 12,
-    color: "#555555",
-    marginBottom: 12,
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#222222",
+    marginBottom: 14,
   },
 
   profileRow: {
@@ -220,9 +230,9 @@ const styles = StyleSheet.create({
   },
 
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: "#E5E5E5",
     alignItems: "center",
     justifyContent: "center",
@@ -235,7 +245,7 @@ const styles = StyleSheet.create({
   },
 
   stylistName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "700",
     color: "#222222",
   },
@@ -246,23 +256,26 @@ const styles = StyleSheet.create({
   },
 
   rating: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#444444",
-    marginTop: 3,
+    marginTop: 4,
   },
 
   tags: {
     flexDirection: "row",
-    gap: 5,
-    marginTop: 6,
+    gap: 6,
+    marginTop: 8,
   },
 
   tag: {
     fontSize: 10,
     color: "#555555",
     backgroundColor: "#E4E1EA",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "#BDB8C9",
+    overflow: "hidden",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
     borderRadius: 5,
   },
 
@@ -279,14 +292,14 @@ const styles = StyleSheet.create({
   },
 
   infoLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: "#777777",
   },
 
   infoValue: {
-    fontSize: 10,
+    fontSize: 11,
     color: "#333333",
-    fontWeight: "600",
+    fontWeight: "700",
   },
 
   notice: {
@@ -313,8 +326,8 @@ const styles = StyleSheet.create({
 
   primaryButton: {
     width: "100%",
-    height: 48,
-    borderRadius: 9,
+    height: 52,
+    borderRadius: 10,
     backgroundColor: PURPLE,
     alignItems: "center",
     justifyContent: "center",
@@ -323,15 +336,15 @@ const styles = StyleSheet.create({
   primaryText: {
     color: "#FFFFFF",
     fontWeight: "700",
-    fontSize: 14,
+    fontSize: 15,
   },
 
   secondaryButton: {
     width: "100%",
-    height: 44,
-    borderRadius: 9,
+    height: 52,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#333333",
+    borderColor: "#222222",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
@@ -340,7 +353,7 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: "#222222",
     fontWeight: "700",
-    fontSize: 13,
+    fontSize: 15,
   },
 
   bottomHint: {

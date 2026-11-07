@@ -670,7 +670,7 @@ export default function PaymentScreen() {
 }
 
 const sectionTitle = {
-  fontSize: 14,
+  fontSize: 15,
   fontWeight: "800" as const,
   color: "#292633",
 };

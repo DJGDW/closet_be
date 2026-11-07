@@ -1,4 +1,3 @@
-import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
@@ -17,6 +16,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import ImagePlaceholderIcon from "../../assets/icons/image-placeholder.svg";
 import styles from "../styles/create-post.styles";
 
 const API_BASE_URL = "http://192.168.219.107:8080";
@@ -325,8 +325,7 @@ export default function CreatePostScreen() {
               />
             ) : (
               <View style={styles.imagePlaceholder}>
-                <Text style={styles.imageIcon}>▧</Text>
-                <Text style={styles.imageHint}>사진 선택</Text>
+                <ImagePlaceholderIcon width={50} height={41} />
               </View>
             )}
           </Pressable>
@@ -339,11 +338,11 @@ export default function CreatePostScreen() {
         </View>
 
         {/* 스타일 태그 */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>스타일 태그</Text>
-          <Text style={styles.description}>
-            게시물에 어울리는 스타일을 선택해 주세요.
-          </Text>
+        <View style={[styles.section, styles.sectionFirst]}>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>스타일 태그</Text>
+            <Text style={styles.sectionHint}>복수 선택 가능</Text>
+          </View>
 
           <View style={styles.tagContainer}>
             {STYLES.map((item) => {
@@ -370,10 +369,10 @@ export default function CreatePostScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>체형 보완</Text>
           <Text style={styles.description}>
-            스타일링에 참고할 체형 보완 태그를 선택해 주세요.
+            이 스타일이 잘 어울리거나 보완에 도움이 되는 체형을 선택해주세요.
           </Text>
 
-          <View style={styles.tagContainer}>
+          <View style={styles.bodyTagContainer}>
             {BODY_TYPES.map((item) => {
               const selected = selectedBodyTypes.includes(item.id);
 
@@ -381,10 +380,19 @@ export default function CreatePostScreen() {
                 <Pressable
                   key={item.id}
                   onPress={() => toggleSelection(item.id, setSelectedBodyTypes)}
-                  style={[styles.tag, selected && styles.selectedTag]}
+                  style={[
+                    styles.tag,
+                    styles.bodyTag,
+                    selected && styles.selectedTag,
+                  ]}
                 >
                   <Text
-                    style={[styles.tagText, selected && styles.selectedTagText]}
+                    style={[
+                      styles.tagText,
+                      styles.bodyTagText,
+                      selected && styles.selectedTagText,
+                    ]}
+                    numberOfLines={1}
                   >
                     {item.label}
                   </Text>
@@ -397,16 +405,13 @@ export default function CreatePostScreen() {
         {/* 해시태그 */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>해시태그</Text>
-          <Text style={styles.description}>
-            게시물을 설명하는 해시태그를 추가해 주세요.
-          </Text>
 
           <View style={styles.hashtagInputRow}>
             <TextInput
               value={hashtagInput}
               onChangeText={setHashtagInput}
-              placeholder="예: 데일리룩"
-              placeholderTextColor="#A5A5A5"
+              placeholder="해시태그를 입력해주세요."
+              placeholderTextColor="#B5B5B5"
               style={styles.hashtagInput}
               returnKeyType="done"
               onSubmitEditing={addHashtag}
@@ -424,15 +429,22 @@ export default function CreatePostScreen() {
                   key={tag}
                   onPress={() => removeHashtag(tag)}
                   style={styles.hashtagChip}
+                  accessibilityRole="button"
+                  accessibilityLabel={`#${tag} 삭제`}
                 >
-                  <Text style={styles.hashtagText}>#{tag} ×</Text>
+                  <Text style={styles.hashtagText}>#{tag}</Text>
+                  <View style={styles.hashtagRemoveBadge}>
+                    <Text style={styles.hashtagRemoveText}>×</Text>
+                  </View>
                 </Pressable>
               ))}
             </View>
           )}
         </View>
+      </ScrollView>
 
-        {/* 등록 버튼 */}
+      {/* 등록 버튼 (하단 고정) */}
+      <View style={styles.footer}>
         <Pressable
           onPress={submitPost}
           disabled={submitting}
@@ -442,25 +454,20 @@ export default function CreatePostScreen() {
             submitting && styles.submitButtonDisabled,
           ]}
         >
-          <LinearGradient
-            colors={["#5D4B96", "#514185"]}
-            style={styles.submitGradient}
-          >
-            {submitting ? (
-              <View style={styles.loadingRow}>
-                <ActivityIndicator color="#FFFFFF" />
-                <Text style={styles.submitButtonText}>등록 중...</Text>
-              </View>
-            ) : (
-              <Text style={styles.submitButtonText}>게시물 등록</Text>
-            )}
-          </LinearGradient>
+          {submitting ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color="#FFFFFF" />
+              <Text style={styles.submitButtonText}>등록 중...</Text>
+            </View>
+          ) : (
+            <Text style={styles.submitButtonText}>게시물 등록</Text>
+          )}
         </Pressable>
 
         <Text style={styles.footerText}>
-          등록한 게시물은 피드에서 확인할 수 있어요.
+          사진을 등록한 후 게시물을 작성할 수 있어요.
         </Text>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }

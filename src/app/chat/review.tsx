@@ -3,28 +3,54 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
 const API_BASE_URL = "http://192.168.219.107:8080";
+const PURPLE = "#51458C";
+
+// 서버 한도(255자)에 맞춘 입력 규칙
+const MIN_CONTENT_LENGTH = 10;
+const MAX_CONTENT_LENGTH = 255;
+
+const RATING_LABELS: Record<number, string> = {
+  1: "매우 불만족",
+  2: "불만족",
+  3: "보통",
+  4: "만족",
+  5: "매우 만족",
+};
+
+function showMessage(title: string, message: string) {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+}
 
 export default function ReviewScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
-  const { name, roomPk, orderPk } = useLocalSearchParams<{
+  const { name, roomPk, orderPk, serviceName } = useLocalSearchParams<{
     name?: string;
     roomPk?: string;
     orderPk?: string;
+    serviceName?: string;
   }>();
 
   const stylistName = name || "스타일리스트";
+  const serviceTitle = serviceName || "스타일링 서비스";
 
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState("");
@@ -38,17 +64,34 @@ export default function ReviewScreen() {
     return await SecureStore.getItemAsync("accessToken");
   };
 
+  const handleAttachPhoto = () => {
+    showMessage("사진 첨부", "사진 첨부 기능은 준비 중이에요.");
+  };
+
   const handleSubmitReview = async () => {
     if (!orderPk) {
-      Alert.alert(
+      showMessage(
         "주문 정보 오류",
         "주문번호를 찾을 수 없습니다. 이전 화면에서 다시 접근해 주세요.",
       );
       return;
     }
 
-    if (content.trim().length > 255) {
-      Alert.alert("입력 오류", "리뷰는 255자 이내로 작성해 주세요.");
+    const trimmedContent = content.trim();
+
+    if (trimmedContent.length < MIN_CONTENT_LENGTH) {
+      showMessage(
+        "입력 오류",
+        `후기 내용을 ${MIN_CONTENT_LENGTH}자 이상 작성해 주세요.`,
+      );
+      return;
+    }
+
+    if (trimmedContent.length > MAX_CONTENT_LENGTH) {
+      showMessage(
+        "입력 오류",
+        `후기는 ${MAX_CONTENT_LENGTH}자 이내로 작성해 주세요.`,
+      );
       return;
     }
 
@@ -58,8 +101,8 @@ export default function ReviewScreen() {
       const accessToken = await getAccessToken();
 
       if (!accessToken) {
-        Alert.alert("로그인 필요", "로그인 후 리뷰를 작성해 주세요.");
-        router.replace("/login");
+        showMessage("로그인 필요", "로그인 후 후기를 작성해 주세요.");
+        router.replace("/");
         return;
       }
 
@@ -71,7 +114,7 @@ export default function ReviewScreen() {
           [
             JSON.stringify({
               rate: rating,
-              content: content.trim(),
+              content: trimmedContent,
             }),
           ],
           { type: "application/json" },
@@ -96,26 +139,26 @@ export default function ReviewScreen() {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          Alert.alert(
+          showMessage(
             "인증 오류",
             "로그인이 만료되었습니다. 다시 로그인해 주세요.",
           );
-          router.replace("/login");
+          router.replace("/");
           return;
         }
 
         if (response.status === 400) {
-          Alert.alert(
-            "리뷰 작성 실패",
+          showMessage(
+            "후기 작성 실패",
             responseData?.message ||
-              "이미 리뷰를 작성했거나 리뷰 작성이 가능한 주문이 아닙니다.",
+              "이미 후기를 작성했거나 후기 작성이 가능한 주문이 아닙니다.",
           );
           return;
         }
 
-        Alert.alert(
+        showMessage(
           "오류",
-          responseData?.message || "리뷰 작성에 실패했습니다.",
+          responseData?.message || "후기 작성에 실패했습니다.",
         );
         return;
       }
@@ -133,7 +176,7 @@ export default function ReviewScreen() {
     } catch (error) {
       console.error("리뷰 등록 오류:", error);
 
-      Alert.alert(
+      showMessage(
         "네트워크 오류",
         "서버와 연결할 수 없습니다. 서버 실행 상태를 확인해 주세요.",
       );
@@ -146,15 +189,17 @@ export default function ReviewScreen() {
     return (
       <View style={styles.starContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity
+          <Pressable
             key={star}
             onPress={() => setRating(star)}
-            activeOpacity={0.7}
+            hitSlop={4}
+            accessibilityRole="button"
+            accessibilityLabel={`${star}점`}
           >
             <Text style={[styles.star, star <= rating && styles.activeStar]}>
               ★
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
     );
@@ -165,97 +210,138 @@ export default function ReviewScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
+      <View
+        style={[
+          styles.header,
+          { paddingTop: insets.top, height: 52 + insets.top },
+        ]}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backButton}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로 가기"
+        >
+          <Ionicons name="chevron-back" size={26} color="#222222" />
+        </Pressable>
+
+        <Text style={styles.headerTitle}>후기 작성</Text>
+
+        <View style={styles.headerRight} />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backText}>‹</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.headerTitle}>리뷰 작성</Text>
-
-          <View style={styles.headerRight} />
-        </View>
-
-        <View style={styles.profileSection}>
+        {/* 스타일리스트 정보 카드 */}
+        <View style={styles.stylistCard}>
           <View style={styles.profileImage}>
-            <Text style={styles.profileEmoji}>👤</Text>
+            <Ionicons name="person" size={36} color="#BDBDBD" />
           </View>
 
-          <Text style={styles.stylistName}>{stylistName} 스타일리스트</Text>
+          <View style={styles.profileInfo}>
+            <View style={styles.nameRow}>
+              <Text style={styles.stylistName}>{stylistName}</Text>
+              <Text style={styles.stylistLabel}>스타일리스트</Text>
+            </View>
 
-          <Text style={styles.reviewGuide}>
-            서비스는 어떠셨나요? 솔직한 리뷰를 남겨주세요.
-          </Text>
+            <Text style={styles.serviceName}>{serviceTitle}</Text>
+
+            <Text style={styles.serviceTags}>
+              개인 스타일 분석 · 코디 추천 · 상품 추천
+            </Text>
+          </View>
         </View>
 
+        {/* 서비스 만족도 */}
         <View style={styles.ratingSection}>
-          <Text style={styles.sectionTitle}>서비스 만족도</Text>
+          <Text style={styles.sectionTitle}>서비스 만족도 *</Text>
 
           {renderStars()}
 
           <Text style={styles.ratingText}>
-            {rating === 5
-              ? "최고였어요!"
-              : rating === 4
-                ? "만족스러웠어요"
-                : rating === 3
-                  ? "보통이었어요"
-                  : rating === 2
-                    ? "아쉬웠어요"
-                    : "별로였어요"}
+            {rating}점 · {RATING_LABELS[rating]}
           </Text>
         </View>
 
-        <View style={styles.reviewSection}>
-          <View style={styles.reviewTitleRow}>
-            <Text style={styles.sectionTitle}>리뷰 내용</Text>
-            <Text style={styles.characterCount}>{content.length}/255</Text>
+        {/* 후기 내용 */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>후기 내용 *</Text>
+
+          <View style={styles.reviewBox}>
+            <TextInput
+              style={styles.reviewInput}
+              placeholder={"스타일링 경험에 대한 솔직한 후기를\n작성해주세요."}
+              placeholderTextColor="#AAAAAA"
+              value={content}
+              onChangeText={setContent}
+              multiline
+              maxLength={MAX_CONTENT_LENGTH}
+              textAlignVertical="top"
+            />
+
+            <View style={styles.reviewMetaRow}>
+              <Text style={styles.reviewMetaText}>
+                최소 {MIN_CONTENT_LENGTH}자 이상
+              </Text>
+              <Text style={styles.reviewMetaText}>
+                {content.length} / {MAX_CONTENT_LENGTH}
+              </Text>
+            </View>
           </View>
-
-          <TextInput
-            style={styles.reviewInput}
-            placeholder={
-              "스타일리스트 서비스에 대한 경험을 자유롭게 작성해 주세요.\n(선택사항)"
-            }
-            placeholderTextColor="#999999"
-            value={content}
-            onChangeText={setContent}
-            multiline
-            maxLength={255}
-            textAlignVertical="top"
-          />
         </View>
 
-        <View style={styles.noticeContainer}>
-          <Text style={styles.noticeText}>
-            작성한 리뷰는 다른 사용자에게 공개됩니다.
+        {/* 사진 첨부 */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>사진 첨부 (선택)</Text>
+          <Text style={styles.photoGuide}>
+            스타일링 결과 사진을 첨부하면 다른 사용자에게 도움이 됩니다.
           </Text>
-          <Text style={styles.noticeText}>
-            리뷰는 등록 후 수정하거나 삭제할 수 없습니다.
-          </Text>
-          <Text style={styles.noticeText}>
-            욕설 및 비방 표현은 제한될 수 있습니다.
-          </Text>
+
+          <View style={styles.photoRow}>
+            <Pressable
+              style={styles.photoAddTile}
+              onPress={handleAttachPhoto}
+              accessibilityRole="button"
+              accessibilityLabel="사진 추가"
+            >
+              <Ionicons name="add" size={26} color="#999999" />
+            </Pressable>
+
+            {[1, 2, 3].map((slot) => (
+              <View key={slot} style={styles.photoTile}>
+                <Text style={styles.photoTileText}>이미지</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
 
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.disabledButton]}
+      <View
+        style={[
+          styles.bottomContainer,
+          { paddingBottom: Math.max(insets.bottom, 12) + 4 },
+        ]}
+      >
+        <Pressable
+          style={({ pressed }) => [
+            styles.submitButton,
+            (loading || pressed) && styles.disabledButton,
+          ]}
           onPress={handleSubmitReview}
           disabled={loading}
-          activeOpacity={0.8}
         >
           <Text style={styles.submitButtonText}>
-            {loading ? "등록 중..." : "리뷰 등록하기"}
+            {loading ? "등록 중..." : "후기 등록하기"}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
+
+        <Text style={styles.bottomHint}>
+          등록 후 수정/삭제 정책은 마이페이지에서 확인할 수 있어요.
+        </Text>
       </View>
     </KeyboardAvoidingView>
   );
@@ -268,17 +354,18 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingBottom: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
   },
 
   header: {
-    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    borderBottomColor: "#EEEEEE",
   },
 
   backButton: {
@@ -286,15 +373,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  backText: {
-    fontSize: 32,
-    color: "#222222",
-    lineHeight: 36,
-  },
-
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
     color: "#222222",
   },
 
@@ -302,127 +383,181 @@ const styles = StyleSheet.create({
     width: 32,
   },
 
-  profileSection: {
+  stylistCard: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingTop: 36,
-    paddingBottom: 30,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    backgroundColor: "#FFFFFF",
   },
 
   profileImage: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "#F2F2F2",
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: "#E5E5E5",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 14,
+    overflow: "hidden",
   },
 
-  profileEmoji: {
-    fontSize: 34,
+  profileInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
   },
 
   stylistName: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#222222",
-    marginBottom: 8,
   },
 
-  reviewGuide: {
+  stylistLabel: {
+    marginLeft: 4,
+    fontSize: 10,
+    color: "#666666",
+  },
+
+  serviceName: {
+    marginTop: 6,
     fontSize: 13,
+    color: "#333333",
+  },
+
+  serviceTags: {
+    marginTop: 4,
+    fontSize: 10,
     color: "#888888",
   },
 
   ratingSection: {
     alignItems: "center",
-    paddingVertical: 24,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: "#F0F0F0",
-    marginHorizontal: 20,
+    marginTop: 26,
   },
 
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "700",
     color: "#222222",
   },
 
   starContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 18,
+    marginTop: 12,
     gap: 8,
   },
 
   star: {
-    fontSize: 40,
-    color: "#DDDDDD",
+    fontSize: 38,
+    color: "#333333",
   },
 
   activeStar: {
-    color: "#FFD54F",
+    color: "#F5C542",
   },
 
   ratingText: {
-    fontSize: 14,
+    fontSize: 11,
     color: "#777777",
-    marginTop: 12,
+    marginTop: 8,
   },
 
-  reviewSection: {
-    marginHorizontal: 20,
-    marginTop: 28,
+  section: {
+    marginTop: 26,
   },
 
-  reviewTitleRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-
-  characterCount: {
-    fontSize: 12,
-    color: "#999999",
+  reviewBox: {
+    marginTop: 10,
+    minHeight: 150,
+    borderWidth: 1,
+    borderColor: "#DDDDDD",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 10,
+    backgroundColor: "#FFFFFF",
   },
 
   reviewInput: {
-    minHeight: 160,
-    borderWidth: 1,
-    borderColor: "#E5E5E5",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 14,
+    flex: 1,
+    minHeight: 100,
+    padding: 0,
+    fontSize: 13,
+    lineHeight: 19,
     color: "#222222",
-    backgroundColor: "#FAFAFA",
   },
 
-  noticeContainer: {
-    marginHorizontal: 20,
-    marginTop: 20,
+  reviewMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 8,
   },
 
-  noticeText: {
-    fontSize: 12,
+  reviewMetaText: {
+    fontSize: 10,
     color: "#999999",
-    lineHeight: 20,
+  },
+
+  photoGuide: {
+    marginTop: 6,
+    fontSize: 10,
+    color: "#999999",
+  },
+
+  photoRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 12,
+  },
+
+  photoAddTile: {
+    width: 74,
+    height: 74,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E2E2",
+    backgroundColor: "#F5F5F5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  photoTile: {
+    width: 74,
+    height: 74,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E2E2",
+    backgroundColor: "#F5F5F5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  photoTileText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#888888",
   },
 
   bottomContainer: {
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 28 : 16,
     backgroundColor: "#FFFFFF",
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
   },
 
   submitButton: {
     height: 54,
-    backgroundColor: "#222222",
-    borderRadius: 12,
+    backgroundColor: PURPLE,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -432,8 +567,15 @@ const styles = StyleSheet.create({
   },
 
   submitButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#FFFFFF",
+  },
+
+  bottomHint: {
+    marginTop: 8,
+    fontSize: 10,
+    color: "#999999",
+    textAlign: "center",
   },
 });

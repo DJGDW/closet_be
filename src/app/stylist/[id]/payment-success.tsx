@@ -8,6 +8,7 @@ import {
   Platform,
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
+import { useState } from "react";
 
 const PURPLE = "#6246a1";
 const API_BASE_URL = "http://192.168.219.107:8080";
@@ -15,16 +16,26 @@ const API_BASE_URL = "http://192.168.219.107:8080";
 export default function PaymentSuccessScreen() {
   const router = useRouter();
 
-  const { id, stylistName, serviceName, price, paymentMethod } =
-    useLocalSearchParams<{
-      id: string;
-      stylistName: string;
-      serviceName: string;
-      price: string;
-      paymentMethod: string;
-    }>();
+  const {
+    id,
+    stylistName,
+    serviceName,
+    paymentMethod,
+    paymentKey,
+    orderId,
+    amount,
+  } = useLocalSearchParams<{
+    id?: string;
+    stylistName?: string;
+    serviceName?: string;
+    paymentMethod?: string;
+    paymentKey?: string;
+    orderId?: string;
+    amount?: string;
+  }>();
 
-  const formattedPrice = Number(price || 0).toLocaleString("ko-KR");
+  const [confirming, setConfirming] = useState(false);
+  const formattedPrice = Number(amount || 0).toLocaleString("ko-KR");
 
   return (
     <View style={styles.container}>
@@ -78,7 +89,23 @@ export default function PaymentSuccessScreen() {
         <Pressable
           style={styles.chatButton}
           onPress={async () => {
+            if (confirming) return;
+
+            if (!paymentKey || !orderId || !amount) {
+              Alert.alert(
+                "결제 정보 오류",
+                "토스 결제 승인 정보가 전달되지 않았습니다. 결제 내역을 확인해 주세요.",
+              );
+              console.error("토스 리다이렉트 파라미터 누락:", {
+                paymentKey: Boolean(paymentKey),
+                orderId,
+                amount,
+              });
+              return;
+            }
+
             try {
+              setConfirming(true);
               const token =
                 Platform.OS === "web"
                   ? localStorage.getItem("accessToken")
@@ -90,59 +117,62 @@ export default function PaymentSuccessScreen() {
                 return;
               }
 
-              if (!id) {
-                Alert.alert("오류", "스타일리스트 정보를 찾을 수 없습니다.");
-                return;
-              }
-
               const response = await fetch(
-                `${API_BASE_URL}/chat/inquiry/${id}`,
+                `${API_BASE_URL}/order/payment/confirm`,
                 {
                   method: "POST",
                   headers: {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json",
                   },
+                  body: JSON.stringify({
+                    paymentKey: String(paymentKey),
+                    orderId: String(orderId),
+                    amount: Number(amount),
+                  }),
                 },
               );
 
+              const result = await response.json().catch(() => null);
               if (!response.ok) {
-                const errorText = await response.text();
-                console.error("채팅방 생성 실패:", errorText);
-                Alert.alert("오류", `채팅방 생성 실패 (${response.status})`);
-                return;
+                throw new Error(
+                  result?.message || `결제 승인 실패 (${response.status})`,
+                );
               }
 
-              const data = await response.json();
-
-              console.log("채팅방 생성 응답 전체:", data);
-
-              const roomPk =
-                typeof data === "number"
-                  ? data
-                  : typeof data === "string"
-                    ? Number(data)
-                    : (data.roomPk ?? data.data?.roomPk);
-
-              if (!roomPk) {
-                Alert.alert("오류", "채팅방 정보를 받아오지 못했습니다.");
-                return;
+              const data = result?.data ?? result?.result ?? result;
+              if (!data?.roomPk || !data?.orderPk) {
+                console.error("결제 승인 응답:", result);
+                throw new Error(
+                  "결제 승인 후 주문 채팅방 정보를 받지 못했습니다.",
+                );
               }
 
-              router.push({
+              router.replace({
                 pathname: "/chat/[roomPk]",
                 params: {
-                  roomPk: String(roomPk),
-                  name: stylistName || "스타일리스트",
+                  roomPk: String(data.roomPk),
+                  orderPk: String(data.orderPk),
+                  name: String(stylistName || "스타일리스트"),
+                  serviceName: String(serviceName || "스타일링 서비스"),
                 },
-              });
+              } as any);
             } catch (error) {
-              console.error("채팅 연결 오류:", error);
-              Alert.alert("오류", "서버 연결에 실패했습니다.");
+              console.error("결제 승인/채팅 연결 오류:", error);
+              Alert.alert(
+                "처리 실패",
+                error instanceof Error
+                  ? error.message
+                  : "결제 승인 처리 중 오류가 발생했습니다.",
+              );
+            } finally {
+              setConfirming(false);
             }
           }}
         >
-          <Text style={styles.chatButtonText}>스타일리스트와 채팅하기</Text>
+          <Text style={styles.chatButtonText}>
+            {confirming ? "결제 승인 처리 중..." : "스타일리스트와 채팅하기"}
+          </Text>
         </Pressable>
       </View>
     </View>

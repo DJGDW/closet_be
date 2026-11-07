@@ -12,11 +12,13 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 
-const PURPLE = "#8B5CF6";
+const PURPLE = "#51458C";
 const API_BASE_URL = "http://192.168.219.107:8080";
 
 type ChatMessage = {
@@ -29,6 +31,14 @@ type ChatMessage = {
   sendAt: string;
   isRead: number;
   imageUrls?: string[];
+};
+
+type OrderInfo = {
+  orderPk: number;
+  processStatus: number;
+  completionRequesterUserPk: number | null;
+  orderName?: string;
+  isBuyer: boolean;
 };
 
 type LoginUser = {
@@ -69,8 +79,43 @@ function formatTime(value: string) {
   });
 }
 
+// 웹에서도 보이도록 알림 표시 (React Native Alert는 웹에서 동작하지 않음)
+function showMessage(title: string, message: string) {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
+function isSameDay(a: string, b: string) {
+  const first = new Date(a);
+  const second = new Date(b);
+
+  return (
+    first.getFullYear() === second.getFullYear() &&
+    first.getMonth() === second.getMonth() &&
+    first.getDate() === second.getDate()
+  );
+}
+
+// 날짜 구분선 문구: 오늘이면 "오늘", 아니면 "YYYY.MM.DD"
+function formatDayLabel(value: string) {
+  const date = new Date(value);
+
+  if (isSameDay(value, new Date().toISOString())) {
+    return "오늘";
+  }
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${date.getFullYear()}.${month}.${day}`;
+}
+
 export default function ChatRoomScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const { roomPk, name, readOnly } = useLocalSearchParams<{
     roomPk: string;
@@ -90,53 +135,194 @@ export default function ChatRoomScreen() {
   const [editingMessagePk, setEditingMessagePk] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [processingMessage, setProcessingMessage] = useState(false);
-  const [closeRequestState, setCloseRequestState] = useState<
-    "idle" | "waiting" | "incoming"
-  >("idle");
+  // 서비스 종료(= 주문 완료) 요청 상태: 서버의 order.processStatus 기준
+  // 1 진행중 / 2 완료요청됨 / 3 완료됨
+  const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null);
+  const [closing, setClosing] = useState(false);
+  const handledCompletedRef = useRef(false);
 
-  // 상담 종료 API 연결 전: 화면 확인용 임시 처리
-  const requestServiceClose = () => {
-    const confirmClose = () => {
-      setCloseRequestState("waiting");
-      Alert.alert(
-        "상담 종료 요청",
-        "종료 요청 UI 확인용입니다. 아직 백엔드 API가 연결되지 않아 상대방에게 전달되지는 않습니다.",
-        [{ text: "확인" }],
+  const closeRequestState: "idle" | "waiting" | "incoming" =
+    !orderInfo || myUserPk === null
+      ? "idle"
+      : orderInfo.processStatus === 2
+        ? orderInfo.completionRequesterUserPk === myUserPk
+          ? "waiting"
+          : "incoming"
+        : "idle";
+
+  const authFetch = useCallback(async (path: string, init?: RequestInit) => {
+    const token = await getAccessToken();
+    if (!token) return null;
+
+    return fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...(init?.headers || {}),
+      },
+    });
+  }, []);
+
+  // 채팅방 -> orderPk -> 주문 상태 조회
+  // (백엔드에 주문 단건 조회 API가 없어서 구매 목록 / 판매 목록에서 찾는다)
+  const fetchOrderInfo = useCallback(async () => {
+    if (!roomId) return;
+
+    try {
+      const [activeRes, historyRes] = await Promise.all([
+        authFetch("/chat/rooms"),
+        authFetch("/chat/rooms/history"),
+      ]);
+
+      const rooms: { roomPk: number; orderPk?: number | null }[] = [];
+      for (const res of [activeRes, historyRes]) {
+        if (res && res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list)) rooms.push(...list);
+        }
+      }
+
+      const room = rooms.find((r) => String(r.roomPk) === String(roomId));
+      const orderPk = room?.orderPk;
+
+      if (!orderPk) {
+        setOrderInfo(null); // 문의 채팅방: 서비스 종료 대상 아님
+        return;
+      }
+
+      const [buyRes, saleRes] = await Promise.all([
+        authFetch("/order"),
+        authFetch("/order/sales"),
+      ]);
+
+      let found: OrderInfo | null = null;
+
+      if (buyRes && buyRes.ok) {
+        const list = await buyRes.json();
+        const order = Array.isArray(list)
+          ? list.find((o: any) => o.orderPk === orderPk)
+          : null;
+        if (order) {
+          found = {
+            orderPk,
+            processStatus: order.processStatus,
+            completionRequesterUserPk: order.completionRequesterUserPk ?? null,
+            orderName: order.orderName,
+            isBuyer: true,
+          };
+        }
+      }
+
+      if (!found && saleRes && saleRes.ok) {
+        const list = await saleRes.json();
+        const order = Array.isArray(list)
+          ? list.find((o: any) => o.orderPk === orderPk)
+          : null;
+        if (order) {
+          found = {
+            orderPk,
+            processStatus: order.processStatus,
+            completionRequesterUserPk: order.completionRequesterUserPk ?? null,
+            orderName: order.orderName,
+            isBuyer: false,
+          };
+        }
+      }
+
+      setOrderInfo(found);
+    } catch (error) {
+      console.error("주문 상태 조회 오류:", error);
+    }
+  }, [roomId, authFetch]);
+
+  const goToServiceComplete = useCallback(
+    (info: OrderInfo) => {
+      router.replace({
+        pathname: "/chat/complete",
+        params: {
+          name: String(name || "스타일리스트"),
+          stylistName: String(name || "스타일리스트"),
+          roomPk: String(roomId || ""),
+          orderPk: String(info.orderPk),
+          serviceName: info.orderName || "스타일링 서비스",
+          useDate: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
+          method: "채팅 상담",
+        },
+      } as any);
+    },
+    [router, name, roomId],
+  );
+
+  // 주문이 완료(3)되면 구매자는 완료 화면으로, 스타일리스트는 채팅 목록으로 이동
+  useEffect(() => {
+    if (!orderInfo || orderInfo.processStatus !== 3) return;
+    if (isReadOnly || handledCompletedRef.current) return;
+    handledCompletedRef.current = true;
+
+    if (orderInfo.isBuyer) {
+      goToServiceComplete(orderInfo);
+    } else {
+      showMessage("서비스 종료", "서비스가 종료되었어요.");
+      router.replace("/chat");
+    }
+  }, [orderInfo, isReadOnly, goToServiceComplete, router]);
+
+  // 요청 / 수락 / 거절 공통 호출
+  const callCompletionApi = async (
+    action: "request" | "confirm" | "reject",
+    successMessage?: string,
+  ) => {
+    if (!orderInfo || closing) return;
+
+    try {
+      setClosing(true);
+
+      const response = await authFetch(
+        `/order/${orderInfo.orderPk}/complete/${action}`,
+        { method: "PATCH" },
       );
-    };
+
+      if (!response) {
+        showMessage("로그인 필요", "로그인 후 이용해주세요.");
+        router.replace("/");
+        return;
+      }
+
+      if (!response.ok) {
+        const text = await response.text();
+        console.error("서비스 종료 API 실패:", response.status, text);
+        showMessage("오류", `처리에 실패했어요. (${response.status})`);
+        return;
+      }
+
+      if (successMessage) showMessage("서비스 종료", successMessage);
+      await fetchOrderInfo();
+    } catch (error) {
+      console.error("서비스 종료 API 오류:", error);
+      showMessage("오류", "서버 연결에 실패했어요.");
+    } finally {
+      setClosing(false);
+    }
+  };
+
+  const requestServiceClose = () => {
+    const run = () =>
+      callCompletionApi("request", "상대방에게 서비스 종료를 요청했어요.");
 
     if (Platform.OS === "web") {
-      if (window.confirm("상대방에게 상담 종료를 요청할까요?")) {
-        confirmClose();
-      }
+      if (window.confirm("상대방에게 서비스 종료를 요청할까요?")) run();
     } else {
-      Alert.alert("상담 종료", "상대방에게 상담 종료를 요청할까요?", [
+      Alert.alert("서비스 종료", "상대방에게 서비스 종료를 요청할까요?", [
         { text: "취소", style: "cancel" },
-        { text: "종료 요청", onPress: confirmClose },
+        { text: "종료 요청", onPress: run },
       ]);
     }
   };
 
-  // 상담 종료 요청 취소 (API 연결 전 화면 상태만 초기화)
-  const cancelServiceClose = () => {
-    setCloseRequestState("idle");
-  };
-
-  const goToServiceComplete = () => {
-    router.push({
-      pathname: "/chat/complete",
-      params: {
-        name: String(name || "스타일리스트"),
-        stylistName: String(name || "스타일리스트"),
-        roomPk: String(roomId || ""),
-        // API 연결 전 미리보기에서는 임시 값 사용
-        orderPk: "1",
-        serviceName: "BASIC 스타일링 서비스",
-        useDate: new Date().toISOString().slice(0, 10).replace(/-/g, "."),
-        method: "채팅 상담",
-      },
-    } as any);
-  };
+  const acceptServiceClose = () => callCompletionApi("confirm");
+  const rejectServiceClose = () =>
+    callCompletionApi("reject", "서비스 종료 요청을 거절했어요.");
 
   const fetchMessages = useCallback(async () => {
     if (!roomId) return;
@@ -205,10 +391,22 @@ export default function ChatRoomScreen() {
     markAsRead();
   }, [fetchMessages, markAsRead]);
 
+  // 서비스 종료 요청 상태 불러오기 + 상대방 응답 확인을 위해 5초마다 갱신
+  useEffect(() => {
+    if (isReadOnly) return;
+
+    fetchOrderInfo();
+    const timer = setInterval(fetchOrderInfo, 5000);
+    return () => clearInterval(timer);
+  }, [fetchOrderInfo, isReadOnly]);
+
   const [selectedImage, setSelectedImage] =
     useState<ImagePicker.ImagePickerAsset | null>(null);
+  const [showExtras, setShowExtras] = useState(false);
 
   const pickImage = async () => {
+    setShowExtras(false);
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: false,
@@ -218,6 +416,41 @@ export default function ChatRoomScreen() {
     if (!result.canceled && result.assets.length > 0) {
       setSelectedImage(result.assets[0]);
     }
+  };
+
+  const takePhoto = async () => {
+    setShowExtras(false);
+
+    try {
+      if (Platform.OS !== "web") {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+        if (!permission.granted) {
+          showMessage(
+            "카메라 접근 권한",
+            "사진을 촬영하려면 카메라 접근 권한이 필요해요.",
+          );
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        setSelectedImage(result.assets[0]);
+      }
+    } catch (error) {
+      console.error("카메라 실행 오류:", error);
+      showMessage("오류", "카메라를 실행하지 못했어요.");
+    }
+  };
+
+  const startVideoCall = () => {
+    setShowExtras(false);
+    showMessage("영상통화", "영상통화 기능은 준비 중이에요.");
   };
 
   const sendMessage = async () => {
@@ -417,30 +650,41 @@ export default function ChatRoomScreen() {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={90}
+      keyboardVerticalOffset={60 + insets.top}
     >
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>‹</Text>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: insets.top, height: 60 + insets.top },
+        ]}
+      >
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backButton}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="뒤로 가기"
+        >
+          <Ionicons name="chevron-back" size={26} color="#222222" />
         </Pressable>
 
-        <Text style={styles.headerName}>{name || "스타일리스트"}</Text>
+        <View style={styles.headerAvatar}>
+          <Text style={styles.headerAvatarText}>
+            {(name || "스").charAt(0)}
+          </Text>
+        </View>
 
-        {!isReadOnly && closeRequestState === "idle" && (
+        <Text style={styles.headerName} numberOfLines={1}>
+          {name || "스타일리스트"}
+        </Text>
+
+        {!isReadOnly && orderInfo && closeRequestState === "idle" && (
           <Pressable
             style={styles.headerCloseButton}
             onPress={requestServiceClose}
+            disabled={closing}
           >
             <Text style={styles.headerCloseButtonText}>서비스 종료</Text>
-          </Pressable>
-        )}
-
-        {!isReadOnly && closeRequestState === "waiting" && (
-          <Pressable
-            style={styles.headerWaitingButton}
-            onPress={cancelServiceClose}
-          >
-            <Text style={styles.headerWaitingButtonText}>요청 취소</Text>
           </Pressable>
         )}
       </View>
@@ -448,25 +692,38 @@ export default function ChatRoomScreen() {
       {!isReadOnly && closeRequestState === "waiting" && (
         <View style={styles.closeWaitingBanner}>
           <Text style={styles.closeWaitingTitle}>
-            상담 종료 요청을 보냈어요
+            서비스 종료 요청을 보냈어요
           </Text>
           <Text style={styles.closeWaitingDesc}>
-            상대방의 수락을 기다리고 있습니다.
-            {"\n"}현재는 API 연결 전이라 실제 상대방에게 전달되지는 않습니다.
+            상대방이 수락하면 서비스가 종료돼요.
           </Text>
-          <Pressable
-            onPress={goToServiceComplete}
-            style={{
-              marginTop: 10,
-              backgroundColor: "#51458C",
-              padding: 8,
-              borderRadius: 8,
-            }}
-          >
-            <Text style={{ color: "white", fontSize: 12 }}>
-              완료 페이지 미리보기 (테스트)
-            </Text>
-          </Pressable>
+        </View>
+      )}
+
+      {!isReadOnly && closeRequestState === "incoming" && (
+        <View style={styles.closeIncomingBanner}>
+          <Text style={styles.closeWaitingTitle}>
+            상대방이 서비스 종료를 요청했어요
+          </Text>
+          <Text style={styles.closeWaitingDesc}>
+            수락하면 서비스가 종료되고 채팅이 닫혀요.
+          </Text>
+          <View style={styles.closeActions}>
+            <Pressable
+              style={styles.closeRejectButton}
+              onPress={rejectServiceClose}
+              disabled={closing}
+            >
+              <Text style={styles.closeRejectText}>거절</Text>
+            </Pressable>
+            <Pressable
+              style={styles.closeAcceptButton}
+              onPress={acceptServiceClose}
+              disabled={closing}
+            >
+              <Text style={styles.closeAcceptText}>수락</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -480,141 +737,154 @@ export default function ChatRoomScreen() {
           keyExtractor={(item) => String(item.msgPk)}
           contentContainerStyle={styles.messageList}
           inverted={false}
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const isMine = myUserPk !== null && item.senderPk === myUserPk;
+            const previous = index > 0 ? messages[index - 1] : null;
+            const showDateDivider =
+              !previous || !isSameDay(previous.sendAt, item.sendAt);
 
             return (
-              <View
-                style={[
-                  styles.messageWrapper,
-                  isMine ? styles.myMessageWrapper : styles.otherMessageWrapper,
-                ]}
-              >
-                {!isMine && (
-                  <View style={styles.smallProfile}>
-                    <Text style={styles.smallProfileText}>
-                      {(item.senderNickname || name || "스").charAt(0)}
-                    </Text>
-                  </View>
+              <View>
+                {showDateDivider && (
+                  <Text style={styles.dateDivider}>
+                    {formatDayLabel(item.sendAt)}
+                  </Text>
                 )}
-
                 <View
                   style={[
-                    styles.messageContent,
+                    styles.messageWrapper,
                     isMine
-                      ? styles.myMessageContent
-                      : styles.otherMessageContent,
+                      ? styles.myMessageWrapper
+                      : styles.otherMessageWrapper,
                   ]}
                 >
-                  <Pressable
-                    onPress={() => {
-                      if (isMine && !isReadOnly) {
-                        setActionMessagePk(
-                          actionMessagePk === item.msgPk ? null : item.msgPk,
-                        );
-                      }
-                    }}
-                    onLongPress={() => {
-                      if (isMine && !isReadOnly) setActionMessagePk(item.msgPk);
-                    }}
+                  {!isMine && (
+                    <View style={styles.smallProfile}>
+                      <Text style={styles.smallProfileText}>
+                        {(item.senderNickname || name || "스").charAt(0)}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View
                     style={[
-                      styles.bubble,
-                      isMine ? styles.myBubble : styles.otherBubble,
+                      styles.messageContent,
+                      isMine
+                        ? styles.myMessageContent
+                        : styles.otherMessageContent,
                     ]}
                   >
-                    {editingMessagePk === item.msgPk ? (
-                      <View style={styles.editBox}>
-                        <TextInput
-                          value={editText}
-                          onChangeText={setEditText}
-                          multiline
-                          style={styles.editInput}
-                        />
-                        <View style={styles.editActions}>
+                    <Pressable
+                      onPress={() => {
+                        if (isMine && !isReadOnly) {
+                          setActionMessagePk(
+                            actionMessagePk === item.msgPk ? null : item.msgPk,
+                          );
+                        }
+                      }}
+                      onLongPress={() => {
+                        if (isMine && !isReadOnly)
+                          setActionMessagePk(item.msgPk);
+                      }}
+                      style={[
+                        styles.bubble,
+                        isMine ? styles.myBubble : styles.otherBubble,
+                      ]}
+                    >
+                      {editingMessagePk === item.msgPk ? (
+                        <View style={styles.editBox}>
+                          <TextInput
+                            value={editText}
+                            onChangeText={setEditText}
+                            multiline
+                            style={styles.editInput}
+                          />
+                          <View style={styles.editActions}>
+                            <Pressable
+                              onPress={() => {
+                                setEditingMessagePk(null);
+                                setActionMessagePk(null);
+                              }}
+                            >
+                              <Text style={styles.editCancel}>취소</Text>
+                            </Pressable>
+                            <Pressable
+                              onPress={() => updateMessage(item.msgPk)}
+                              disabled={!editText.trim() || processingMessage}
+                            >
+                              <Text style={styles.editSave}>
+                                {processingMessage ? "완료 중" : "완료"}
+                              </Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ) : item.imageUrls && item.imageUrls.length > 0 ? (
+                        <View>
+                          {item.imageUrls.map((imageUrl, index) => (
+                            <Image
+                              key={`${item.msgPk}-${index}`}
+                              source={{ uri: imageUrl }}
+                              style={styles.sentImage}
+                              resizeMode="cover"
+                            />
+                          ))}
+                          {!!item.msgContent && (
+                            <Text
+                              style={[
+                                styles.messageText,
+                                isMine
+                                  ? styles.myMessageText
+                                  : styles.otherMessageText,
+                              ]}
+                            >
+                              {item.msgContent}
+                            </Text>
+                          )}
+                        </View>
+                      ) : (
+                        <Text
+                          style={[
+                            styles.messageText,
+                            isMine
+                              ? styles.myMessageText
+                              : styles.otherMessageText,
+                          ]}
+                        >
+                          {item.msgContent}
+                        </Text>
+                      )}
+                    </Pressable>
+
+                    {!isReadOnly &&
+                      isMine &&
+                      actionMessagePk === item.msgPk &&
+                      editingMessagePk !== item.msgPk && (
+                        <View style={styles.messageActions}>
+                          {!item.imageUrls?.length && (
+                            <Pressable
+                              onPress={() => {
+                                setEditText(item.msgContent);
+                                setEditingMessagePk(item.msgPk);
+                              }}
+                            >
+                              <Text style={styles.actionText}>수정</Text>
+                            </Pressable>
+                          )}
                           <Pressable
-                            onPress={() => {
-                              setEditingMessagePk(null);
-                              setActionMessagePk(null);
-                            }}
+                            onPress={() => deleteMessage(item.msgPk)}
+                            disabled={processingMessage}
                           >
-                            <Text style={styles.editCancel}>취소</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => updateMessage(item.msgPk)}
-                            disabled={!editText.trim() || processingMessage}
-                          >
-                            <Text style={styles.editSave}>
-                              {processingMessage ? "완료 중" : "완료"}
+                            <Text style={styles.deleteActionText}>
+                              {processingMessage ? "처리 중" : "삭제"}
                             </Text>
                           </Pressable>
                         </View>
-                      </View>
-                    ) : item.imageUrls && item.imageUrls.length > 0 ? (
-                      <View>
-                        {item.imageUrls.map((imageUrl, index) => (
-                          <Image
-                            key={`${item.msgPk}-${index}`}
-                            source={{ uri: imageUrl }}
-                            style={styles.sentImage}
-                            resizeMode="cover"
-                          />
-                        ))}
-                        {!!item.msgContent && (
-                          <Text
-                            style={[
-                              styles.messageText,
-                              isMine
-                                ? styles.myMessageText
-                                : styles.otherMessageText,
-                            ]}
-                          >
-                            {item.msgContent}
-                          </Text>
-                        )}
-                      </View>
-                    ) : (
-                      <Text
-                        style={[
-                          styles.messageText,
-                          isMine
-                            ? styles.myMessageText
-                            : styles.otherMessageText,
-                        ]}
-                      >
-                        {item.msgContent}
-                      </Text>
-                    )}
-                  </Pressable>
+                      )}
 
-                  {!isReadOnly &&
-                    isMine &&
-                    actionMessagePk === item.msgPk &&
-                    editingMessagePk !== item.msgPk && (
-                      <View style={styles.messageActions}>
-                        {!item.imageUrls?.length && (
-                          <Pressable
-                            onPress={() => {
-                              setEditText(item.msgContent);
-                              setEditingMessagePk(item.msgPk);
-                            }}
-                          >
-                            <Text style={styles.actionText}>수정</Text>
-                          </Pressable>
-                        )}
-                        <Pressable
-                          onPress={() => deleteMessage(item.msgPk)}
-                          disabled={processingMessage}
-                        >
-                          <Text style={styles.deleteActionText}>
-                            {processingMessage ? "처리 중" : "삭제"}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    )}
-
-                  <Text style={styles.messageTime}>
-                    {formatTime(item.sendAt)}
-                  </Text>
+                    <Text style={styles.messageTime}>
+                      {formatTime(item.sendAt)}
+                    </Text>
+                  </View>
                 </View>
               </View>
             );
@@ -644,8 +914,15 @@ export default function ChatRoomScreen() {
 
       {!isReadOnly && (
         <View style={styles.inputContainer}>
-          <Pressable style={styles.imageButton} onPress={pickImage}>
-            <Text style={styles.imageButtonText}>＋</Text>
+          <Pressable
+            style={styles.imageButton}
+            onPress={() => setShowExtras((current) => !current)}
+            accessibilityRole="button"
+            accessibilityLabel={
+              showExtras ? "부가 기능 닫기" : "부가 기능 열기"
+            }
+          >
+            <Ionicons name="add" size={30} color="#111111" />
           </Pressable>
 
           <TextInput
@@ -654,6 +931,7 @@ export default function ChatRoomScreen() {
             placeholderTextColor="#AAAAAA"
             value={input}
             onChangeText={setInput}
+            onFocus={() => setShowExtras(false)}
             multiline
           />
 
@@ -665,10 +943,33 @@ export default function ChatRoomScreen() {
             ]}
             onPress={selectedImage ? sendImage : sendMessage}
             disabled={(!input.trim() && !selectedImage) || sending}
+            accessibilityRole="button"
+            accessibilityLabel={selectedImage ? "사진 전송" : "메시지 전송"}
           >
-            <Text style={styles.sendButtonText}>
-              {sending ? "전송 중" : selectedImage ? "사진 전송" : "전송"}
-            </Text>
+            {sending ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Ionicons name="arrow-up" size={22} color="#FFFFFF" />
+            )}
+          </Pressable>
+        </View>
+      )}
+
+      {!isReadOnly && showExtras && (
+        <View style={styles.extrasPanel}>
+          <Pressable style={styles.extraItem} onPress={takePhoto}>
+            <Ionicons name="camera-outline" size={25} color={PURPLE} />
+            <Text style={styles.extraLabel}>카메라</Text>
+          </Pressable>
+
+          <Pressable style={styles.extraItem} onPress={pickImage}>
+            <Ionicons name="image-outline" size={25} color={PURPLE} />
+            <Text style={styles.extraLabel}>사진</Text>
+          </Pressable>
+
+          <Pressable style={styles.extraItem} onPress={startVideoCall}>
+            <Ionicons name="videocam-outline" size={25} color={PURPLE} />
+            <Text style={styles.extraLabel}>영상통화</Text>
           </Pressable>
         </View>
       )}
@@ -687,26 +988,37 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   header: {
-    height: 100,
+    height: 60,
     flexDirection: "row",
-    alignItems: "flex-end",
-    paddingBottom: 15,
-    paddingHorizontal: 18,
+    alignItems: "center",
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: "#EEEEEE",
   },
   backButton: {
-    marginRight: 16,
-    paddingHorizontal: 5,
+    width: 30,
+    height: 40,
+    marginRight: 6,
+    justifyContent: "center",
   },
-  backText: {
-    fontSize: 36,
-    color: "#222222",
-    lineHeight: 36,
+  headerAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#E6E6E6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  headerAvatarText: {
+    color: "#888888",
+    fontSize: 14,
+    fontWeight: "700",
   },
   headerName: {
-    fontSize: 18,
-    fontWeight: "bold",
+    flexShrink: 1,
+    fontSize: 15,
+    fontWeight: "700",
     color: "#222222",
   },
   headerCloseButton: {
@@ -714,7 +1026,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
-    backgroundColor: "#8B5CF6",
+    backgroundColor: PURPLE,
   },
   headerCloseButtonText: {
     color: "#FFFFFF",
@@ -727,20 +1039,27 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#8B5CF6",
+    borderColor: PURPLE,
   },
   headerWaitingButtonText: {
-    color: "#8B5CF6",
+    color: PURPLE,
     fontSize: 11,
     fontWeight: "700",
   },
   messageList: {
-    padding: 16,
+    padding: 14,
     paddingBottom: 20,
+  },
+  dateDivider: {
+    textAlign: "center",
+    fontSize: 11,
+    color: "#999999",
+    marginTop: 4,
+    marginBottom: 14,
   },
   messageWrapper: {
     flexDirection: "row",
-    marginBottom: 18,
+    marginBottom: 14,
     alignItems: "flex-end",
   },
   myMessageWrapper: {
@@ -753,13 +1072,13 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#F3E8FF",
+    backgroundColor: "#E6E6E6",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
   },
   smallProfileText: {
-    color: PURPLE,
+    color: "#888888",
     fontWeight: "bold",
   },
   messageContent: {
@@ -773,16 +1092,14 @@ const styles = StyleSheet.create({
   },
   bubble: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
+    paddingVertical: 11,
+    borderRadius: 12,
   },
   myBubble: {
     backgroundColor: PURPLE,
-    borderBottomRightRadius: 4,
   },
   otherBubble: {
-    backgroundColor: "#F2F2F2",
-    borderBottomLeftRadius: 4,
+    backgroundColor: "#EEEEEE",
   },
   sentImage: {
     width: 220,
@@ -792,8 +1109,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#EAEAEA",
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 14,
+    lineHeight: 20,
   },
   myMessageText: {
     color: "#FFFFFF",
@@ -855,21 +1172,44 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
-    paddingHorizontal: 12,
+    paddingHorizontal: 6,
     paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#EEEEEE",
     backgroundColor: "#FFFFFF",
   },
   textInput: {
     flex: 1,
     maxHeight: 100,
-    minHeight: 42,
-    backgroundColor: "#F5F5F5",
-    borderRadius: 21,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    minHeight: 46,
+    backgroundColor: "#F2F2F2",
+    borderRadius: 23,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     fontSize: 15,
+    color: "#222222",
+  },
+  extrasPanel: {
+    flexDirection: "row",
+    gap: 7,
+    paddingLeft: 39,
+    paddingRight: 12,
+    paddingTop: 8,
+    paddingBottom: 18,
+    backgroundColor: "#FFFFFF",
+  },
+  extraItem: {
+    width: 67,
+    height: 67,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E3E3E3",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  extraLabel: {
+    marginTop: 5,
+    fontSize: 10,
+    fontWeight: "700",
     color: "#222222",
   },
   imagePreviewContainer: {
@@ -900,28 +1240,21 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   imageButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#F3E8FF",
+    width: 28,
+    height: 46,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 8,
-  },
-  imageButtonText: {
-    fontSize: 28,
-    color: PURPLE,
-    fontWeight: "bold",
-    lineHeight: 32,
+    marginRight: 5,
   },
   sendButton: {
-    height: 42,
-    paddingHorizontal: 16,
-    borderRadius: 21,
-    backgroundColor: PURPLE,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#222222",
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 8,
+    marginLeft: 10,
+    marginBottom: 1,
   },
   disabledSendButton: {
     opacity: 0.4,
@@ -963,6 +1296,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F1FA",
     borderRadius: 12,
   },
+  closeActions: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 12,
+  },
+  closeRejectButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#222222",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  closeRejectText: { color: "#222222", fontWeight: "700", fontSize: 14 },
   closeWaitingTitle: {
     color: "#51458C",
     fontWeight: "700",

@@ -7,7 +7,7 @@ export const COLORS = {
   border: "#EEEEEE",
   placeholder: "#F2F2F2",
   purple: "#8B5CF6",
-  subpurple: "#4d458b"
+  subpurple: "#4d458b",
 };
 
 export const styles = StyleSheet.create({
@@ -26,9 +26,9 @@ export const styles = StyleSheet.create({
   },
 
   header: {
-    height: 76,
+    height: 62,
     paddingLeft: 12,
-    paddingRight: 12,
+    paddingRight: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -43,15 +43,15 @@ export const styles = StyleSheet.create({
   },
 
   logoImage: {
-    width: 125,
-    height: 38,
+    width: 105,
+    height: 32,
     alignSelf: "flex-start",
   },
 
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 17,
+    gap: 9,
   },
 
   headerIconButton: {
@@ -67,8 +67,8 @@ export const styles = StyleSheet.create({
   },
 
   feedContent: {
-    paddingHorizontal: 7,
-    paddingTop: 1,
+    paddingHorizontal: 6,
+    paddingTop: 0,
     paddingBottom: 14,
   },
 
@@ -76,22 +76,23 @@ export const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
-    columnGap: 3,
-    rowGap: 3,
+    columnGap: 4,
+    rowGap: 5,
   },
 
   postCard: {
-    width: "48.8%",
-    marginBottom: 1,
+    width: "49.3%",
     position: "relative",
     overflow: "hidden",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#DCDCDC",
   },
 
   postImage: {
     width: "100%",
-    aspectRatio: 0.76,
-    borderColor: "#D5D5D5",
-    backgroundColor: COLORS.placeholder,
+    aspectRatio: 0.58,
+    backgroundColor: "#E7E7E7",
   },
 
   imageGradient: {
@@ -99,7 +100,7 @@ export const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: "45%",
+    height: "26%",
   },
 
   stylistInfo: {
@@ -129,19 +130,20 @@ export const styles = StyleSheet.create({
   stylistStyle: { color: "#FFFFFF", fontSize: 10, fontWeight: "400" },
 
   bottomNav: {
-    height: 66,
+    height: 80,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: COLORS.border,
     backgroundColor: COLORS.background,
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
-    paddingHorizontal: 15,
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    paddingTop: 18,
+    paddingHorizontal: 19,
   },
 
   navItem: {
     width: 52,
-    height: 48,
+    height: 38,
     alignItems: "center",
     justifyContent: "center",
   },

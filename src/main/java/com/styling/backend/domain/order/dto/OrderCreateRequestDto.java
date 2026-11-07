@@ -1,0 +1,17 @@
+package com.styling.backend.domain.order.dto;
+
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
+@NoArgsConstructor
+public class OrderCreateRequestDto {
+
+    @NotNull
+    @Positive
+    private Long stylistPlanPk;
+}

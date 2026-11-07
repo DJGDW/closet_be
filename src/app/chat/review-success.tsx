@@ -47,17 +47,17 @@ export default function ReviewCompleteScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>리뷰 등록 완료</Text>
+          <Text style={styles.headerTitle}>후기 등록 완료</Text>
           <View style={styles.headerDivider} />
         </View>
 
         <View style={styles.successArea}>
           <Ionicons name="cloud-upload-outline" size={68} color="#000000" />
 
-          <Text style={styles.successTitle}>리뷰가 등록되었습니다!</Text>
+          <Text style={styles.successTitle}>후기가 등록되었습니다!</Text>
 
           <Text style={styles.successDescription}>
-            소중한 리뷰를 남겨주셔서 감사합니다.
+            소중한 후기를 남겨주셔서 감사합니다.
             {"\n"}더 좋은 스타일링 경험을 위해 노력하겠습니다.
           </Text>
         </View>
@@ -151,21 +151,21 @@ const styles = StyleSheet.create({
   },
 
   stylistCard: {
-    minHeight: 98,
+    minHeight: 112,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F4F2FA",
     borderWidth: 1,
     borderColor: "#E0DCEB",
     borderRadius: 14,
-    paddingHorizontal: 13,
-    paddingVertical: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
   },
 
   profileImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: "#E2E2E2",
     alignItems: "center",
     justifyContent: "center",
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
 
   profileInfo: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 12,
   },
 
   nameRow: {
@@ -183,26 +183,26 @@ const styles = StyleSheet.create({
   },
 
   stylistName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "700",
     color: "#222222",
   },
 
   stylistLabel: {
-    marginLeft: 3,
-    fontSize: 9,
+    marginLeft: 4,
+    fontSize: 10,
     color: "#666666",
   },
 
   serviceName: {
-    marginTop: 5,
-    fontSize: 12,
+    marginTop: 6,
+    fontSize: 13,
     color: "#333333",
   },
 
   serviceTags: {
-    marginTop: 3,
-    fontSize: 9,
+    marginTop: 4,
+    fontSize: 10,
     color: "#888888",
   },
 
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
 
   ratingText: {
     marginLeft: 3,
-    fontSize: 9,
+    fontSize: 11,
     color: "#555555",
   },
 
@@ -227,22 +227,22 @@ const styles = StyleSheet.create({
   },
 
   primaryButton: {
-    height: 43,
-    borderRadius: 9,
+    height: 52,
+    borderRadius: 10,
     backgroundColor: PURPLE,
     alignItems: "center",
     justifyContent: "center",
   },
 
   primaryButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
   },
 
   secondaryButton: {
-    height: 43,
-    borderRadius: 9,
+    height: 52,
+    borderRadius: 10,
     borderWidth: 1.2,
     borderColor: "#222222",
     backgroundColor: "#FFFFFF",
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
 
   secondaryButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: "#222222",
   },

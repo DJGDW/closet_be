@@ -281,12 +281,8 @@ export default function FeedScreen() {
                     />
 
                     <LinearGradient
-                      colors={[
-                        "rgba(0,0,0,0)",
-                        "rgba(0,0,0,0.2)",
-                        "rgba(0,0,0,0.9)",
-                      ]}
-                      locations={[0, 0.4, 1]}
+                      colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.4)"]}
+                      locations={[0, 1]}
                       style={styles.imageGradient}
                       pointerEvents="none"
                     />
