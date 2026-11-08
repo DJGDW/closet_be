@@ -35,3 +35,5 @@ application-local.yml
 .env
 .env.*
 !.env.exampletest-env.sh
+test-env.sh
+node_modules/
