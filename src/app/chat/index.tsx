@@ -1,8 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import {
   View,
   Text,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   ActivityIndicator,
@@ -12,7 +14,9 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import * as SecureStore from "expo-secure-store";
 
-const PURPLE = "#8B5CF6";
+import { palette } from "../../styles/theme";
+
+const PURPLE = palette.primary;
 const API_BASE_URL = "http://192.168.219.107:8080";
 
 type ChatRoom = {
@@ -204,22 +208,37 @@ export default function ChatListScreen() {
               })
             }
           >
-            <View style={styles.profile}>
-              <Text style={styles.profileText}>
-                {(item.opponentNickname || "스").charAt(0)}
-              </Text>
-            </View>
+            {item.opponentProfilePic ? (
+              <Image
+                source={{ uri: item.opponentProfilePic }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.profile}>
+                <Text style={styles.profileText}>
+                  {(item.opponentNickname || "스").charAt(0)}
+                </Text>
+              </View>
+            )}
 
             <View style={styles.chatContent}>
               <View style={styles.nameRow}>
-                <Text style={styles.name}>{item.opponentNickname}</Text>
+                <Text style={styles.name} numberOfLines={1}>
+                  {item.opponentNickname}
+                </Text>
                 <Text style={styles.time}>
                   {formatTime(item.lastMessageAt)}
                 </Text>
               </View>
 
               <View style={styles.messageRow}>
-                <Text style={styles.message} numberOfLines={1}>
+                <Text
+                  style={[
+                    styles.message,
+                    item.unreadCount > 0 && styles.messageUnread,
+                  ]}
+                  numberOfLines={1}
+                >
                   {item.lastMessage || "상담을 시작해 보세요."}
                 </Text>
 
@@ -236,11 +255,20 @@ export default function ChatListScreen() {
         )}
         ListEmptyComponent={() =>
           !error ? (
-            <Text style={styles.emptyText}>
-              {tab === "inquiry"
-                ? "진행 중인 문의 채팅이 없습니다."
-                : "진행 중인 서비스 채팅이 없습니다.\n종료된 채팅은 구매내역에서 확인할 수 있어요."}
-            </Text>
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyCircle}>
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={28}
+                  color={PURPLE}
+                />
+              </View>
+              <Text style={styles.emptyText}>
+                {tab === "inquiry"
+                  ? "진행 중인 문의 채팅이 없습니다."
+                  : "진행 중인 서비스 채팅이 없습니다.\n종료된 채팅은 구매내역에서 확인할 수 있어요."}
+              </Text>
+            </View>
           ) : null
         }
       />
@@ -251,19 +279,20 @@ export default function ChatListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
-    paddingTop: 60,
+    backgroundColor: palette.background,
+    paddingTop: 56,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: palette.background,
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#222222",
+    fontSize: 26,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    color: palette.text,
     paddingHorizontal: 20,
     paddingBottom: 16,
   },
@@ -271,8 +300,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginHorizontal: 20,
     marginBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    padding: 4,
+    borderRadius: 14,
+    backgroundColor: palette.surface,
   },
   tab: {
     flex: 1,
@@ -280,21 +310,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 5,
     alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   selectedTab: {
-    borderBottomColor: PURPLE,
+    backgroundColor: palette.background,
+    shadowColor: "#1A1A1F",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   tabText: {
     fontSize: 14,
-    color: "#999999",
-    fontWeight: "500",
+    color: palette.textMute,
+    fontWeight: "600",
   },
   selectedTabText: {
     color: PURPLE,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   tabDot: {
     width: 6,
@@ -303,7 +337,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F04438",
   },
   errorText: {
-    color: "#D32F2F",
+    color: palette.danger,
     paddingHorizontal: 20,
     paddingBottom: 10,
   },
@@ -311,20 +345,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingVertical: 14,
   },
   profile: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#F3E8FF",
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: palette.primaryLine,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
   },
+  profileImage: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: palette.surface,
+    marginRight: 14,
+  },
   profileText: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: PURPLE,
   },
   chatContent: {
@@ -332,17 +375,20 @@ const styles = StyleSheet.create({
   },
   nameRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 6,
+    marginBottom: 5,
   },
   name: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#222222",
+    flexShrink: 1,
+    fontSize: 16,
+    fontWeight: "700",
+    color: palette.text,
+    marginRight: 8,
   },
   time: {
-    fontSize: 12,
-    color: "#999999",
+    fontSize: 11.5,
+    color: palette.textMute,
   },
   messageRow: {
     flexDirection: "row",
@@ -350,9 +396,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   message: {
-    fontSize: 13,
-    color: "#888888",
+    fontSize: 13.5,
+    color: palette.textSub,
     flex: 1,
+  },
+  messageUnread: {
+    color: palette.text,
+    fontWeight: "600",
   },
   unreadBadge: {
     backgroundColor: PURPLE,
@@ -361,7 +411,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     marginLeft: 8,
   },
   unreadText: {
@@ -371,8 +421,22 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: "center",
-    color: "#999999",
+    color: palette.textSub,
+    fontSize: 14,
     lineHeight: 21,
-    marginTop: 50,
+  },
+  emptyWrap: {
+    alignItems: "center",
+    paddingTop: 96,
+    paddingHorizontal: 24,
+  },
+  emptyCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: palette.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
 });

@@ -28,6 +28,8 @@ const PAYMENT_METHODS = [
 ];
 
 type PlanDto = {
+  // 스타일리스트별 플랜 PK (주문 생성 API에 필요). planPk는 공통 플랜 종류 PK라 주문에 쓰면 안 됨
+  stylistPlanPk?: number;
   planPk: number;
   planTier: string;
   planCode: string;
@@ -248,6 +250,14 @@ export default function PaymentScreen() {
       const token = await getAccessToken();
       if (!token) throw new Error("로그인이 필요합니다. 다시 로그인해주세요.");
 
+      // 주문은 '스타일리스트별 플랜 PK(stylistPlanPk)'로 만들어야 해당 스타일리스트에게 결제됨
+      const stylistPlanPk = Number(selectedService.stylistPlanPk);
+      if (!Number.isFinite(stylistPlanPk) || stylistPlanPk <= 0) {
+        throw new Error(
+          "플랜 정보를 불러오지 못했어요. 앱을 새로고침하거나 백엔드를 최신으로 업데이트한 뒤 다시 시도해 주세요.",
+        );
+      }
+
       // 1) 백엔드에서 주문 생성
       const orderResponse = await fetch(`${API_BASE_URL}/order`, {
         method: "POST",
@@ -255,7 +265,7 @@ export default function PaymentScreen() {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ stylistPlanPk: Number(planPk) }),
+        body: JSON.stringify({ stylistPlanPk }),
       });
 
       const orderResult = await orderResponse.json().catch(() => null);

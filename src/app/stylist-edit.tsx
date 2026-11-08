@@ -1,4 +1,6 @@
 import { router } from "expo-router";
+import { File as ExpoFile } from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -89,6 +91,14 @@ const PLANS = [
 
 const MAX_STYLE_SELECTION = 5;
 
+// 새로 고른 프로필 이미지 (저장할 때 PATCH /user/update로 업로드)
+type PickedImage = {
+  uri: string;
+  file?: File;
+  name: string;
+  mimeType: string;
+};
+
 type PlanPrice = {
   selected: boolean;
   price: string;
@@ -140,6 +150,7 @@ export default function StylistEditScreen() {
 
   const [nickname, setNickname] = useState("");
   const [profilePic, setProfilePic] = useState<string | null>(null);
+  const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
   const [introduction, setIntroduction] = useState("");
   const [locationPk, setLocationPk] = useState<number | null>(null);
   const [styleTypePks, setStyleTypePks] = useState<number[]>([]);
@@ -249,6 +260,83 @@ export default function StylistEditScreen() {
     }));
   }
 
+  // 프로필 이미지 선택 (저장 전까지는 화면에만 미리보기)
+  async function pickProfileImage() {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        showMessage(
+          "사진 접근 권한",
+          "프로필 사진을 선택하려면 사진 접근 권한이 필요해요.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+
+      setPickedImage({
+        uri: asset.uri,
+        file: (asset as any).file as File | undefined,
+        name: asset.fileName || `profile-${Date.now()}.jpg`,
+        mimeType: asset.mimeType || "image/jpeg",
+      });
+    } catch (error) {
+      console.error("프로필 사진 선택 오류:", error);
+      showMessage("오류", "사진을 불러오지 못했어요.");
+    }
+  }
+
+  // PATCH /user/update : 유저 프로필 사진 변경 (스타일리스트도 같은 API 사용)
+  // request(JSON)는 필수 항목이 없어서 {} 만 보내면 됨
+  async function uploadProfileImage(token: string, image: PickedImage) {
+    const formData = new FormData();
+
+    formData.append(
+      "request",
+      new Blob([JSON.stringify({})], { type: "application/json" }),
+    );
+
+    if (Platform.OS === "web") {
+      let imageFile = image.file;
+
+      if (!imageFile) {
+        const imageResponse = await fetch(image.uri);
+        if (!imageResponse.ok) {
+          throw new Error("선택한 이미지를 읽지 못했어요.");
+        }
+        const imageBlob = await imageResponse.blob();
+        imageFile = new File([imageBlob], image.name, { type: image.mimeType });
+      }
+
+      formData.append("profileImage", imageFile, imageFile.name);
+    } else {
+      formData.append("profileImage", new ExpoFile(image.uri) as any);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/user/update`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      console.error("프로필 사진 업로드 실패:", response.status, text);
+      throw new Error(`프로필 사진을 저장하지 못했어요. (${response.status})`);
+    }
+  }
+
   // PUT /stylist/me (등록 API와 같은 요청 형식)
   async function handleSave() {
     if (locationPk === null) {
@@ -289,6 +377,13 @@ export default function StylistEditScreen() {
           "로그인 정보가 없습니다. 다시 로그인해 주세요.",
         );
         return;
+      }
+
+      // 새 프로필 사진을 골랐다면 먼저 업로드 (실패하면 전체 저장을 중단)
+      if (pickedImage) {
+        await uploadProfileImage(token, pickedImage);
+        setProfilePic(pickedImage.uri);
+        setPickedImage(null);
       }
 
       const response = await fetch(`${API_BASE_URL}/stylist/me`, {
@@ -332,10 +427,19 @@ export default function StylistEditScreen() {
       showMessage("수정 실패", errorMessage);
     } catch (error) {
       console.error("스타일리스트 정보 수정 오류:", error);
-      showMessage(
-        "서버 연결 실패",
-        "서버 실행 상태와 네트워크 연결을 확인해 주세요.",
-      );
+
+      if (
+        error instanceof Error &&
+        (error.message.startsWith("프로필 사진") ||
+          error.message.startsWith("선택한 이미지"))
+      ) {
+        showMessage("프로필 사진", error.message);
+      } else {
+        showMessage(
+          "서버 연결 실패",
+          "서버 실행 상태와 네트워크 연결을 확인해 주세요.",
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -427,16 +531,13 @@ export default function StylistEditScreen() {
           <Text style={styles.fieldLabel}>프로필 이미지</Text>
           <Pressable
             style={styles.imagePlaceholder}
-            onPress={() =>
-              showMessage(
-                "프로필 이미지",
-                "이미지 업로드 API가 준비되면 연결할 수 있어요.",
-              )
-            }
+            onPress={pickProfileImage}
+            accessibilityRole="button"
+            accessibilityLabel="프로필 이미지 변경"
           >
-            {profilePic ? (
+            {pickedImage || profilePic ? (
               <Image
-                source={{ uri: profilePic }}
+                source={{ uri: pickedImage?.uri ?? (profilePic as string) }}
                 style={{ width: "100%", height: "100%", borderRadius: 6 }}
                 resizeMode="cover"
               />
@@ -444,6 +545,11 @@ export default function StylistEditScreen() {
               <Text style={styles.imagePlus}>＋</Text>
             )}
           </Pressable>
+          <Text style={styles.helperText}>
+            {pickedImage
+              ? "저장하면 새 프로필 사진이 적용돼요."
+              : "이미지를 눌러 프로필 사진을 바꿀 수 있어요."}
+          </Text>
 
           <Text style={styles.fieldLabel}>소개글</Text>
           <TextInput

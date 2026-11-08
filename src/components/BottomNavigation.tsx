@@ -1,19 +1,10 @@
 import { useRouter, usePathname } from "expo-router";
-import { Pressable, View } from "react-native";
-
-import HomeActiveIcon from "../../assets/icons/nav-home-active.svg";
-import HomeIcon from "../../assets/icons/nav-home.svg";
-
-import SearchActiveIcon from "../../assets/icons/nav-search-active.svg";
-import SearchIcon from "../../assets/icons/nav-search.svg";
-
-import ChatActiveIcon from "../../assets/icons/nav-chat-active.svg";
-import ChatIcon from "../../assets/icons/nav-chat.svg";
-
-import MyPageActiveIcon from "../../assets/icons/nav-mypage-active.svg";
-import MyPageIcon from "../../assets/icons/nav-mypage.svg";
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { styles } from "../styles/feed.styles";
+import { palette } from "../styles/theme";
 
 type TabKey = "home" | "search" | "chat" | "mypage";
 
@@ -23,29 +14,22 @@ const TAB_LABELS: Record<TabKey, string> = {
   chat: "채팅",
   mypage: "마이페이지",
 };
+type IconName = keyof typeof Ionicons.glyphMap;
 
-const TAB_ICONS = {
-  home: {
-    inactive: HomeIcon,
-    active: HomeActiveIcon,
-  },
-  search: {
-    inactive: SearchIcon,
-    active: SearchActiveIcon,
-  },
+const TAB_ICONS: Record<TabKey, { inactive: IconName; active: IconName }> = {
+  home: { inactive: "home-outline", active: "home" },
+  search: { inactive: "search-outline", active: "search" },
   chat: {
-    inactive: ChatIcon,
-    active: ChatActiveIcon,
+    inactive: "chatbubble-ellipses-outline",
+    active: "chatbubble-ellipses",
   },
-  mypage: {
-    inactive: MyPageIcon,
-    active: MyPageActiveIcon,
-  },
+  mypage: { inactive: "person-outline", active: "person" },
 };
 
 export default function BottomNavigation() {
   const router = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
 
   const activeTab: TabKey =
     pathname === "/search"
@@ -85,10 +69,15 @@ export default function BottomNavigation() {
   };
 
   return (
-    <View style={styles.bottomNav}>
+    <View
+      style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 6) }]}
+    >
       {(["home", "search", "chat", "mypage"] as TabKey[]).map((tab) => {
         const isActive = activeTab === tab;
-        const Icon = isActive ? TAB_ICONS[tab].active : TAB_ICONS[tab].inactive;
+        const iconName = isActive
+          ? TAB_ICONS[tab].active
+          : TAB_ICONS[tab].inactive;
+        const color = isActive ? palette.primary : palette.textMute;
 
         return (
           <Pressable
@@ -99,7 +88,17 @@ export default function BottomNavigation() {
             accessibilityLabel={TAB_LABELS[tab]}
             accessibilityState={{ selected: isActive }}
           >
-            <Icon width={24} height={38} />
+            <Ionicons name={iconName} size={23} color={color} />
+            <Text
+              style={[
+                styles.navLabel,
+                { color },
+                isActive && styles.navLabelActive,
+              ]}
+              numberOfLines={1}
+            >
+              {TAB_LABELS[tab]}
+            </Text>
           </Pressable>
         );
       })}

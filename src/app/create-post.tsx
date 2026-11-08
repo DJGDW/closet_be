@@ -36,6 +36,8 @@ const STYLES = [
   { id: 12, label: "스포츠/애슬레저" },
 ];
 
+const NO_BODY_TYPE_ID = 9;
+
 const BODY_TYPES = [
   { id: 1, label: "어깨가 좁은 체형" },
   { id: 2, label: "허리가 두꺼운 체형" },
@@ -45,6 +47,8 @@ const BODY_TYPES = [
   { id: 6, label: "종아리가 두꺼운 체형" },
   { id: 7, label: "종아리가 얇은 체형" },
   { id: 8, label: "다리가 짧은 체형" },
+  // 보완할 체형이 없는 게시물용. DB ratio_type 테이블의 "없음" 행 PK와 맞아야 해요.
+  { id: NO_BODY_TYPE_ID, label: "없음" },
 ];
 
 type PickedImage = {
@@ -137,6 +141,21 @@ export default function CreatePostScreen() {
     );
   };
 
+  // 체형 보완: "없음"은 다른 체형과 함께 선택할 수 없다
+  const toggleBodyType = (id: number) => {
+    setSelectedBodyTypes((previous) => {
+      if (id === NO_BODY_TYPE_ID) {
+        return previous.includes(id) ? [] : [NO_BODY_TYPE_ID];
+      }
+
+      const withoutNone = previous.filter((item) => item !== NO_BODY_TYPE_ID);
+
+      return withoutNone.includes(id)
+        ? withoutNone.filter((item) => item !== id)
+        : [...withoutNone, id];
+    });
+  };
+
   const addHashtag = () => {
     const cleaned = hashtagInput.trim().replace(/^#+/, "").replace(/\s+/g, "");
 
@@ -179,7 +198,7 @@ export default function CreatePostScreen() {
     if (selectedBodyTypes.length === 0) {
       showMessage(
         "체형 보완 태그를 선택해 주세요",
-        "현재 서버는 체형 보완 ID(ratioPk)를 필수로 요구해요.",
+        "보완할 체형이 없다면 '없음'을 선택해 주세요.",
       );
       return;
     }
@@ -370,6 +389,7 @@ export default function CreatePostScreen() {
           <Text style={styles.sectionTitle}>체형 보완</Text>
           <Text style={styles.description}>
             이 스타일이 잘 어울리거나 보완에 도움이 되는 체형을 선택해주세요.
+            해당하는 체형이 없다면 '없음'을 선택해 주세요.
           </Text>
 
           <View style={styles.bodyTagContainer}>
@@ -379,7 +399,7 @@ export default function CreatePostScreen() {
               return (
                 <Pressable
                   key={item.id}
-                  onPress={() => toggleSelection(item.id, setSelectedBodyTypes)}
+                  onPress={() => toggleBodyType(item.id)}
                   style={[
                     styles.tag,
                     styles.bodyTag,

@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Platform,
@@ -382,6 +383,67 @@ export default function StylistProfileScreen() {
       pathname: "/stylist/[id]/portfolio",
       params: { id: String(id) },
     });
+  };
+
+  const [inquiryLoading, setInquiryLoading] = useState(false);
+
+  const showMessage = (message: string) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.alert(message);
+    } else {
+      Alert.alert("알림", message);
+    }
+  };
+
+  // 문의하기: 문의 채팅방을 만들거나(이미 있으면 기존 방) 열기
+  const handleInquiry = async () => {
+    if (inquiryLoading || !id) return;
+
+    try {
+      setInquiryLoading(true);
+      const token = await getAccessToken();
+
+      if (!token) {
+        router.replace("/");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/chat/inquiry/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.status === 401) {
+        router.replace("/");
+        return;
+      }
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(
+          result?.message || `문의 채팅방을 열지 못했어요 (${response.status})`,
+        );
+      }
+
+      const roomPk = await response.json();
+
+      router.push({
+        pathname: "/chat/[roomPk]",
+        params: {
+          roomPk: String(roomPk),
+          name: stylist?.nickname || "스타일리스트",
+          stylistPk: String(id),
+          readOnly: "false",
+        },
+      } as any);
+    } catch (error) {
+      console.error("문의하기 오류:", error);
+      showMessage(
+        error instanceof Error ? error.message : "문의 채팅방을 열지 못했어요.",
+      );
+    } finally {
+      setInquiryLoading(false);
+    }
   };
 
   const goToPayment = () => {
@@ -975,7 +1037,8 @@ export default function StylistProfileScreen() {
         }}
       >
         <Pressable
-          onPress={() => {}}
+          onPress={handleInquiry}
+          disabled={inquiryLoading}
           style={{
             flex: 1,
             height: 44,
@@ -983,10 +1046,11 @@ export default function StylistProfileScreen() {
             backgroundColor: "#F2F2F2",
             alignItems: "center",
             justifyContent: "center",
+            opacity: inquiryLoading ? 0.6 : 1,
           }}
         >
           <Text style={{ fontSize: 13, fontWeight: "700", color: "#333333" }}>
-            문의하기
+            {inquiryLoading ? "여는 중..." : "문의하기"}
           </Text>
         </Pressable>
 

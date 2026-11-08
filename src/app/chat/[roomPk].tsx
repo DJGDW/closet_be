@@ -17,8 +17,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
+import { palette } from "../../styles/theme";
 
-const PURPLE = "#51458C";
+const PURPLE = palette.primary;
 const API_BASE_URL = "http://192.168.219.107:8080";
 
 type ChatMessage = {
@@ -118,10 +119,16 @@ export default function ChatRoomScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const { roomPk, name, readOnly } = useLocalSearchParams<{
+  const {
+    roomPk,
+    name,
+    readOnly,
+    stylistPk: stylistPkParam,
+  } = useLocalSearchParams<{
     roomPk: string;
     name: string;
     readOnly?: string;
+    stylistPk?: string;
   }>();
 
   const roomId = roomPk;
@@ -140,6 +147,11 @@ export default function ChatRoomScreen() {
   // 1 진행중 / 2 완료요청됨 / 3 완료됨
   const [orderInfo, setOrderInfo] = useState<OrderInfo | null>(null);
   const [closing, setClosing] = useState(false);
+  // 문의 채팅방 여부 / 이 문의가 연결된 스타일리스트 PK (서비스 등록하기 버튼용)
+  const [isInquiryRoom, setIsInquiryRoom] = useState(false);
+  const [inquiryStylistPk, setInquiryStylistPk] = useState<string>(
+    stylistPkParam ? String(stylistPkParam) : "",
+  );
   const handledCompletedRef = useRef(false);
 
   const closeRequestState: "idle" | "waiting" | "incoming" =
@@ -165,6 +177,44 @@ export default function ChatRoomScreen() {
     });
   }, []);
 
+  // 채팅 목록에서 다시 들어와도 버튼이 동작하도록 방별 스타일리스트 PK를 기기에 기억
+  useEffect(() => {
+    if (!roomId) return;
+    const key = `inquiryStylist_${roomId}`;
+
+    (async () => {
+      try {
+        if (stylistPkParam) {
+          const value = String(stylistPkParam);
+          if (Platform.OS === "web") localStorage.setItem(key, value);
+          else await SecureStore.setItemAsync(key, value);
+          return;
+        }
+
+        const saved =
+          Platform.OS === "web"
+            ? localStorage.getItem(key)
+            : await SecureStore.getItemAsync(key);
+        if (saved) setInquiryStylistPk((prev) => prev || saved);
+      } catch (error) {
+        console.error("스타일리스트 정보 저장/조회 실패:", error);
+      }
+    })();
+  }, [roomId, stylistPkParam]);
+
+  // 문의 채팅방에서 서비스 등록하기: 스타일리스트 프로필(플랜 선택 → 결제)로 이동
+  const goToRegisterService = () => {
+    if (!inquiryStylistPk) {
+      const msg =
+        "스타일리스트 정보를 찾지 못했어요. 스타일리스트 프로필에서 서비스를 신청해 주세요.";
+      if (Platform.OS === "web") window.alert(msg);
+      else Alert.alert("알림", msg);
+      return;
+    }
+
+    router.push(`/stylist/${inquiryStylistPk}` as any);
+  };
+
   // 채팅방 -> orderPk -> 주문 상태 조회
   // (백엔드에 주문 단건 조회 API가 없어서 구매 목록 / 판매 목록에서 찾는다)
   const fetchOrderInfo = useCallback(async () => {
@@ -176,7 +226,12 @@ export default function ChatRoomScreen() {
         authFetch("/chat/rooms/history"),
       ]);
 
-      const rooms: { roomPk: number; orderPk?: number | null }[] = [];
+      const rooms: {
+        roomPk: number;
+        orderPk?: number | null;
+        roomType?: number;
+        stylistPk?: number | null;
+      }[] = [];
       for (const res of [activeRes, historyRes]) {
         if (res && res.ok) {
           const list = await res.json();
@@ -186,6 +241,13 @@ export default function ChatRoomScreen() {
 
       const room = rooms.find((r) => String(r.roomPk) === String(roomId));
       const orderPk = room?.orderPk;
+
+      setIsInquiryRoom(!!room && !orderPk && Number(room.roomType) === 1);
+
+      // 백엔드가 방 목록에 stylistPk를 내려주면 그 값을 우선 사용
+      if (room?.stylistPk != null) {
+        setInquiryStylistPk(String(room.stylistPk));
+      }
 
       if (!orderPk) {
         setOrderInfo(null); // 문의 채팅방: 서비스 종료 대상 아님
@@ -688,7 +750,7 @@ export default function ChatRoomScreen() {
           accessibilityRole="button"
           accessibilityLabel="뒤로 가기"
         >
-          <Ionicons name="chevron-back" size={26} color="#222222" />
+          <Ionicons name="chevron-back" size={26} color={palette.text} />
         </Pressable>
 
         <View style={styles.headerAvatar}>
@@ -697,9 +759,20 @@ export default function ChatRoomScreen() {
           </Text>
         </View>
 
-        <Text style={styles.headerName} numberOfLines={1}>
-          {name || "스타일리스트"}
-        </Text>
+        <View style={styles.headerTextArea}>
+          <Text style={styles.headerName} numberOfLines={1}>
+            {name || "스타일리스트"}
+          </Text>
+          <Text style={styles.headerSub} numberOfLines={1}>
+            {isReadOnly
+              ? "종료된 채팅"
+              : orderInfo
+                ? "서비스 진행중"
+                : isInquiryRoom
+                  ? "문의 상담"
+                  : "스타일링 상담"}
+          </Text>
+        </View>
 
         {!isReadOnly && orderInfo && closeRequestState === "idle" && (
           <Pressable
@@ -711,6 +784,26 @@ export default function ChatRoomScreen() {
           </Pressable>
         )}
       </View>
+
+      {!isReadOnly && isInquiryRoom && !orderInfo && (
+        <View style={styles.registerBanner}>
+          <View style={styles.registerTextArea}>
+            <Text style={styles.registerTitle}>서비스를 시작해 볼까요?</Text>
+            <Text style={styles.registerDesc}>
+              플랜을 고르고 바로 결제할 수 있어요
+            </Text>
+          </View>
+
+          <Pressable
+            style={styles.registerButton}
+            onPress={goToRegisterService}
+            accessibilityRole="button"
+            accessibilityLabel="서비스 등록하기"
+          >
+            <Text style={styles.registerButtonText}>등록하기</Text>
+          </Pressable>
+        </View>
+      )}
 
       {!isReadOnly && closeRequestState === "waiting" && (
         <View style={styles.closeWaitingBanner}>
@@ -766,6 +859,21 @@ export default function ChatRoomScreen() {
             const showDateDivider =
               !previous || !isSameDay(previous.sendAt, item.sendAt);
 
+            // 같은 사람이 같은 시각에 연달아 보낸 메시지는 하나로 묶어서 보여준다 (표시만)
+            const next =
+              index < messages.length - 1 ? messages[index + 1] : null;
+            const sameMinute = (a: string, b: string) =>
+              formatTime(a) === formatTime(b) && isSameDay(a, b);
+            const isFirstOfGroup =
+              showDateDivider ||
+              !previous ||
+              previous.senderPk !== item.senderPk ||
+              !sameMinute(previous.sendAt, item.sendAt);
+            const isLastOfGroup =
+              !next ||
+              next.senderPk !== item.senderPk ||
+              !sameMinute(next.sendAt, item.sendAt);
+
             return (
               <View>
                 {showDateDivider && (
@@ -776,18 +884,22 @@ export default function ChatRoomScreen() {
                 <View
                   style={[
                     styles.messageWrapper,
+                    !isLastOfGroup && styles.messageWrapperGrouped,
                     isMine
                       ? styles.myMessageWrapper
                       : styles.otherMessageWrapper,
                   ]}
                 >
-                  {!isMine && (
-                    <View style={styles.smallProfile}>
-                      <Text style={styles.smallProfileText}>
-                        {(item.senderNickname || name || "스").charAt(0)}
-                      </Text>
-                    </View>
-                  )}
+                  {!isMine &&
+                    (isFirstOfGroup ? (
+                      <View style={styles.smallProfile}>
+                        <Text style={styles.smallProfileText}>
+                          {(item.senderNickname || name || "스").charAt(0)}
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.smallProfileSpacer} />
+                    ))}
 
                   <View
                     style={[
@@ -812,6 +924,11 @@ export default function ChatRoomScreen() {
                       style={[
                         styles.bubble,
                         isMine ? styles.myBubble : styles.otherBubble,
+                        isLastOfGroup
+                          ? isMine
+                            ? styles.myBubbleTail
+                            : styles.otherBubbleTail
+                          : null,
                       ]}
                     >
                       {editingMessagePk === item.msgPk ? (
@@ -904,18 +1021,43 @@ export default function ChatRoomScreen() {
                         </View>
                       )}
 
-                    <Text style={styles.messageTime}>
-                      {formatTime(item.sendAt)}
-                    </Text>
+                    {isLastOfGroup && (
+                      <Text style={styles.messageTime}>
+                        {formatTime(item.sendAt)}
+                      </Text>
+                    )}
                   </View>
                 </View>
               </View>
             );
           }}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>아직 메시지가 없습니다.</Text>
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyCircle}>
+                <Ionicons
+                  name="chatbubble-ellipses-outline"
+                  size={28}
+                  color={PURPLE}
+                />
+              </View>
+              <Text style={styles.emptyText}>아직 메시지가 없습니다.</Text>
+              <Text style={styles.emptySub}>먼저 인사를 건네 보세요 👋</Text>
+            </View>
           }
         />
+      )}
+
+      {isReadOnly && (
+        <View
+          style={[styles.readOnlyBar, { paddingBottom: 12 + insets.bottom }]}
+        >
+          <Ionicons
+            name="lock-closed-outline"
+            size={14}
+            color={palette.textSub}
+          />
+          <Text style={styles.readOnlyText}>종료된 채팅은 읽기만 가능해요</Text>
+        </View>
       )}
 
       {!isReadOnly && selectedImage && (
@@ -930,7 +1072,7 @@ export default function ChatRoomScreen() {
             style={styles.removeImageButton}
             onPress={() => setSelectedImage(null)}
           >
-            <Text style={styles.removeImageText}>✕</Text>
+            <Ionicons name="close" size={14} color="#FFFFFF" />
           </Pressable>
         </View>
       )}
@@ -945,13 +1087,17 @@ export default function ChatRoomScreen() {
               showExtras ? "부가 기능 닫기" : "부가 기능 열기"
             }
           >
-            <Ionicons name="add" size={30} color="#111111" />
+            <Ionicons
+              name={showExtras ? "close" : "add"}
+              size={24}
+              color={palette.primary}
+            />
           </Pressable>
 
           <TextInput
             style={styles.textInput}
             placeholder="메시지를 입력하세요."
-            placeholderTextColor="#AAAAAA"
+            placeholderTextColor={palette.textMute}
             value={input}
             onChangeText={setInput}
             onFocus={() => setShowExtras(false)}
@@ -972,7 +1118,15 @@ export default function ChatRoomScreen() {
             {sending ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Ionicons name="arrow-up" size={22} color="#FFFFFF" />
+              <Ionicons
+                name="arrow-up"
+                size={20}
+                color={
+                  (!input.trim() && !selectedImage) || sending
+                    ? palette.textMute
+                    : "#FFFFFF"
+                }
+              />
             )}
           </Pressable>
         </View>
@@ -981,17 +1135,17 @@ export default function ChatRoomScreen() {
       {!isReadOnly && showExtras && (
         <View style={styles.extrasPanel}>
           <Pressable style={styles.extraItem} onPress={takePhoto}>
-            <Ionicons name="camera-outline" size={25} color={PURPLE} />
+            <Ionicons name="camera-outline" size={24} color={PURPLE} />
             <Text style={styles.extraLabel}>카메라</Text>
           </Pressable>
 
           <Pressable style={styles.extraItem} onPress={pickImage}>
-            <Ionicons name="image-outline" size={25} color={PURPLE} />
+            <Ionicons name="image-outline" size={24} color={PURPLE} />
             <Text style={styles.extraLabel}>사진</Text>
           </Pressable>
 
           <Pressable style={styles.extraItem} onPress={startVideoCall}>
-            <Ionicons name="videocam-outline" size={25} color={PURPLE} />
+            <Ionicons name="videocam-outline" size={24} color={PURPLE} />
             <Text style={styles.extraLabel}>영상통화</Text>
           </Pressable>
 
@@ -1014,7 +1168,7 @@ export default function ChatRoomScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#F7F7FB",
   },
   loadingContainer: {
     flex: 1,
@@ -1025,41 +1179,52 @@ const styles = StyleSheet.create({
     height: 60,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#EEEEEE",
+    paddingHorizontal: 10,
+    backgroundColor: palette.background,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.line,
   },
   backButton: {
-    width: 30,
+    width: 34,
     height: 40,
-    marginRight: 6,
+    marginRight: 4,
     justifyContent: "center",
   },
   headerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#E6E6E6",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: palette.primaryLine,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
   },
   headerAvatarText: {
-    color: "#888888",
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  headerName: {
-    flexShrink: 1,
+    color: palette.primary,
     fontSize: 15,
     fontWeight: "700",
-    color: "#222222",
+  },
+  headerTextArea: {
+    flexShrink: 1,
+    justifyContent: "center",
+  },
+  headerName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: palette.text,
+  },
+  headerSub: {
+    fontSize: 11,
+    color: palette.textMute,
+    marginTop: 1,
   },
   headerCloseButton: {
     marginLeft: "auto",
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 999,
     backgroundColor: PURPLE,
   },
   headerCloseButtonText: {
@@ -1067,11 +1232,52 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+  registerBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 2,
+    paddingVertical: 12,
+    paddingLeft: 16,
+    paddingRight: 12,
+    borderRadius: 16,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: palette.primaryLine,
+  },
+  registerTextArea: {
+    flex: 1,
+    marginRight: 8,
+  },
+  registerTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: palette.text,
+  },
+  registerDesc: {
+    fontSize: 11.5,
+    color: palette.textSub,
+    marginTop: 2,
+  },
+  registerButton: {
+    paddingHorizontal: 14,
+    height: 34,
+    borderRadius: 999,
+    backgroundColor: PURPLE,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  registerButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   headerWaitingButton: {
     marginLeft: "auto",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 16,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: PURPLE,
   },
@@ -1081,20 +1287,31 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   messageList: {
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 12,
     paddingBottom: 20,
   },
   dateDivider: {
+    alignSelf: "center",
+    overflow: "hidden",
     textAlign: "center",
     fontSize: 11,
-    color: "#999999",
-    marginTop: 4,
-    marginBottom: 14,
+    fontWeight: "600",
+    color: palette.textSub,
+    backgroundColor: "#ECECF3",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginTop: 6,
+    marginBottom: 16,
   },
   messageWrapper: {
     flexDirection: "row",
     marginBottom: 14,
-    alignItems: "flex-end",
+    alignItems: "flex-start",
+  },
+  messageWrapperGrouped: {
+    marginBottom: 3,
   },
   myMessageWrapper: {
     justifyContent: "flex-end",
@@ -1106,17 +1323,24 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#E6E6E6",
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: palette.primaryLine,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
   },
+  smallProfileSpacer: {
+    width: 32,
+    marginRight: 8,
+  },
   smallProfileText: {
-    color: "#888888",
-    fontWeight: "bold",
+    color: palette.primary,
+    fontSize: 12,
+    fontWeight: "700",
   },
   messageContent: {
-    maxWidth: "75%",
+    maxWidth: "76%",
   },
   myMessageContent: {
     alignItems: "flex-end",
@@ -1126,31 +1350,44 @@ const styles = StyleSheet.create({
   },
   bubble: {
     paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 20,
   },
   myBubble: {
     backgroundColor: PURPLE,
+    shadowColor: PURPLE,
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  myBubbleTail: {
+    borderBottomRightRadius: 6,
   },
   otherBubble: {
-    backgroundColor: "#EEEEEE",
+    backgroundColor: "#FFFFFF",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.line,
+  },
+  otherBubbleTail: {
+    borderBottomLeftRadius: 6,
   },
   sentImage: {
     width: 220,
     height: 220,
-    borderRadius: 10,
+    borderRadius: 14,
     marginBottom: 4,
-    backgroundColor: "#EAEAEA",
+    backgroundColor: palette.line,
   },
   messageText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 14.5,
+    lineHeight: 21,
   },
   myMessageText: {
     color: "#FFFFFF",
   },
   otherMessageText: {
-    color: "#222222",
+    color: palette.text,
   },
   messageActions: {
     flexDirection: "row",
@@ -1199,63 +1436,63 @@ const styles = StyleSheet.create({
   },
   messageTime: {
     fontSize: 10,
-    color: "#AAAAAA",
+    color: palette.textMute,
     marginTop: 4,
-    marginHorizontal: 4,
+    marginHorizontal: 6,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
-    paddingHorizontal: 6,
-    paddingVertical: 10,
-    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: palette.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.line,
   },
   textInput: {
     flex: 1,
     maxHeight: 100,
-    minHeight: 46,
-    backgroundColor: "#F2F2F2",
-    borderRadius: 23,
+    minHeight: 44,
+    backgroundColor: palette.surface,
+    borderRadius: 22,
     paddingHorizontal: 18,
     paddingVertical: 12,
     fontSize: 15,
-    color: "#222222",
+    color: palette.text,
   },
   extrasPanel: {
     flexDirection: "row",
-    gap: 7,
-    paddingLeft: 39,
-    paddingRight: 12,
-    paddingTop: 8,
-    paddingBottom: 18,
-    backgroundColor: "#FFFFFF",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 6,
+    paddingBottom: 20,
+    backgroundColor: palette.background,
   },
   extraItem: {
-    width: 67,
-    height: 67,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E3E3E3",
-    backgroundColor: "#FFFFFF",
+    width: 72,
+    height: 72,
+    borderRadius: 18,
+    backgroundColor: palette.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
   extraLabel: {
-    marginTop: 5,
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#222222",
+    marginTop: 6,
+    fontSize: 11,
+    fontWeight: "600",
+    color: palette.text,
   },
   imagePreviewContainer: {
     position: "relative",
     paddingHorizontal: 12,
     paddingTop: 10,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: palette.background,
   },
   imagePreview: {
     width: 100,
     height: 100,
-    borderRadius: 12,
+    borderRadius: 14,
   },
   removeImageButton: {
     position: "absolute",
@@ -1274,24 +1511,25 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   imageButton: {
-    width: 28,
-    height: 46,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: palette.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 5,
+    marginRight: 8,
   },
   sendButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#222222",
+    backgroundColor: PURPLE,
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 10,
-    marginBottom: 1,
+    marginLeft: 8,
   },
   disabledSendButton: {
-    opacity: 0.4,
+    backgroundColor: palette.line,
   },
   sendButtonText: {
     color: "#FFFFFF",
@@ -1316,19 +1554,25 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   closeWaitingBanner: {
-    marginHorizontal: 16,
-    marginVertical: 8,
+    marginHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 2,
     padding: 14,
-    backgroundColor: "#F3F1FA",
-    borderRadius: 12,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: palette.primaryLine,
+    borderRadius: 16,
     alignItems: "center",
   },
   closeIncomingBanner: {
-    marginHorizontal: 16,
-    marginVertical: 8,
+    marginHorizontal: 14,
+    marginTop: 10,
+    marginBottom: 2,
     padding: 14,
-    backgroundColor: "#F3F1FA",
-    borderRadius: 12,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 1,
+    borderColor: palette.primaryLine,
+    borderRadius: 16,
   },
   closeActions: {
     flexDirection: "row",
@@ -1337,10 +1581,10 @@ const styles = StyleSheet.create({
   },
   closeRejectButton: {
     flex: 1,
-    height: 40,
-    borderRadius: 8,
+    height: 42,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#222222",
+    borderColor: palette.primaryLine,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -1386,9 +1630,9 @@ const styles = StyleSheet.create({
   },
   closeAcceptButton: {
     flex: 1,
-    height: 40,
-    backgroundColor: "#51458C",
-    borderRadius: 8,
+    height: 42,
+    backgroundColor: PURPLE,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1398,7 +1642,40 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: "center",
-    color: "#999999",
-    marginTop: 50,
+    color: palette.text,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  emptyWrap: {
+    alignItems: "center",
+    paddingTop: 80,
+  },
+  emptyCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: palette.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  emptySub: {
+    marginTop: 6,
+    fontSize: 13,
+    color: palette.textMute,
+  },
+  readOnlyBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingTop: 12,
+    backgroundColor: palette.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.line,
+  },
+  readOnlyText: {
+    fontSize: 12.5,
+    color: palette.textSub,
   },
 });
