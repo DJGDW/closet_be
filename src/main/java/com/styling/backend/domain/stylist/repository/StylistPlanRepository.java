@@ -8,4 +8,6 @@ import java.util.List;
 public interface StylistPlanRepository extends JpaRepository<StylistPlan, Long> {
 
     List<StylistPlan> findAllByStylist_StylistPk(Long stylistPk);
+
+    List<StylistPlan> findAllByStylist_StylistPkAndActiveTrue(Long stylistPk);
 }

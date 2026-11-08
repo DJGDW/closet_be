@@ -29,7 +29,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -194,19 +193,6 @@ public class StylistService {
                         stylist.getStylistPk()
                 );
 
-        if (existingStyleTypes.size() != styleTypes.size()
-                || existingPlans.size() != planRequests.size()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        }
-
-        existingStyleTypes.sort(
-                Comparator.comparing(StylistStyleType::getStylistTypePk)
-        );
-
-        existingPlans.sort(
-                Comparator.comparing(StylistPlan::getStylistPlanPk)
-        );
-
         Map<Long, StyleType> styleTypeMap = new HashMap<>();
 
         for (StyleType styleType : styleTypes) {
@@ -221,21 +207,49 @@ public class StylistService {
 
         stylist.updateInfo(request.getIntroduction(), location);
 
-        for (int i = 0; i < existingStyleTypes.size(); i++) {
-            StyleType styleType = styleTypeMap.get(styleTypePks.get(i));
-            existingStyleTypes.get(i).updateStyleType(styleType);
+        stylistStyleTypeRepository.deleteAll(existingStyleTypes);
+
+        List<StylistStyleType> updatedStyleTypes = styleTypePks.stream()
+                .map(styleTypePk -> stylistMapper.toStyleTypeEntity(
+                        styleTypeMap.get(styleTypePk), stylist
+                ))
+                .toList();
+
+        stylistStyleTypeRepository.saveAll(updatedStyleTypes);
+
+        Map<Integer, StylistPlan> existingPlanMap = new HashMap<>();
+
+        for (StylistPlan existingPlan : existingPlans) {
+            existingPlanMap.put(
+                    existingPlan.getPlan().getPlanPk(),
+                    existingPlan
+            );
         }
 
-        for (int i = 0; i < existingPlans.size(); i++) {
-            StylistRegisterRequestDto.StylistPlanRequestDto planRequest =
-                    planRequests.get(i);
+        for (StylistRegisterRequestDto.StylistPlanRequestDto planRequest
+                : planRequests) {
 
-            Plan plan = planMap.get(planRequest.getPlanPk());
+            Integer planPk = planRequest.getPlanPk();
+            Plan plan = planMap.get(planPk);
 
-            existingPlans.get(i).updatePlan(
-                    plan,
-                    planRequest.getPrice()
-            );
+            StylistPlan existingPlan = existingPlanMap.get(planPk);
+
+            if (existingPlan != null) {
+                existingPlan.updatePlan(plan, planRequest.getPrice());
+                existingPlan.activate();
+            } else {
+                StylistPlan newPlan = stylistMapper.toPlanEntity(
+                        plan, stylist, planRequest.getPrice()
+                );
+
+                stylistPlanRepository.save(newPlan);
+            }
+        }
+
+        for (StylistPlan existingPlan : existingPlans) {
+            if (!uniquePlanPks.contains(existingPlan.getPlan().getPlanPk())) {
+                existingPlan.deactivate();
+            }
         }
     }
 
@@ -289,7 +303,9 @@ public class StylistService {
                 stylistStyleTypeRepository.findAllByStylist_StylistPk(stylistPk);
 
         List<StylistPlan> stylistPlans =
-                stylistPlanRepository.findAllByStylist_StylistPk(stylistPk);
+                stylistPlanRepository.findAllByStylist_StylistPkAndActiveTrue(
+                        stylistPk
+                );
 
         Long postCount =
                 postRepository.countByStylist_StylistPk(stylistPk);

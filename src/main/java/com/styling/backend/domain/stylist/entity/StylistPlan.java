@@ -28,14 +28,26 @@ public class StylistPlan {
     @Column(name = "price")
     private Integer price;
 
+    @Column(name = "is_active", nullable = false)
+    private boolean active = true;
+
     public StylistPlan(Plan plan, Stylist stylist, Integer price) {
         this.plan = plan;
         this.stylist = stylist;
         this.price = price;
+        this.active = true;
     }
 
     public void updatePlan(Plan plan, Integer price) {
         this.plan = plan;
         this.price = price;
+    }
+
+    public void activate() {
+        this.active = true;
+    }
+
+    public void deactivate() {
+        this.active = false;
     }
 }
