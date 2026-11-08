@@ -13,7 +13,8 @@ import {
   ActivityIndicator,
   Alert,
 } from "react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Client } from "@stomp/stompjs";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,6 +44,7 @@ async function getAccessToken() {
   if (Platform.OS === "web") {
     return localStorage.getItem("accessToken");
   }
+
   return SecureStore.getItemAsync("accessToken");
 }
 
@@ -93,6 +95,10 @@ export default function ChatRoomScreen() {
   const [editingMessagePk, setEditingMessagePk] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
   const [processingMessage, setProcessingMessage] = useState(false);
+  const [calling, setCalling] = useState(false);
+
+  const handledCallEvents = useRef(new Set<string>());
+
   const [closeRequestState, setCloseRequestState] = useState<
     "idle" | "waiting" | "incoming"
   >("idle");
@@ -100,13 +106,219 @@ export default function ChatRoomScreen() {
   const [selectedImage, setSelectedImage] =
     useState<ImagePicker.ImagePickerAsset | null>(null);
 
+  // --------------------------------------------------
+  // 영상통화 화면 이동
+  // --------------------------------------------------
+
+  const navigateToVideoCall = useCallback(
+    (callPk: number, isCaller: boolean) => {
+      router.push({
+        pathname: "/video-call",
+        params: {
+          roomPk: String(roomId),
+          callPk: String(callPk),
+          isCaller: String(isCaller),
+        },
+      });
+    },
+    [roomId, router]
+  );
+
+  // --------------------------------------------------
+  // 영상통화 수락 / 거절 REST API
+  // --------------------------------------------------
+
+  const respondToVideoCall = useCallback(
+    async (callPk: number, action: "accept" | "reject") => {
+      try {
+        const token = await getAccessToken();
+
+        if (!token) {
+          Alert.alert("로그인 필요", "로그인 후 이용해주세요.");
+          return;
+        }
+
+        const requestUrl =
+          `${API_BASE_URL}/chat/${roomId}/video-call/${callPk}/${action}`;
+
+        console.log("영상통화 응답 요청:", requestUrl);
+
+        const response = await fetch(requestUrl, {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        });
+
+        const responseText = await response.text();
+
+        console.log("영상통화 응답 상태:", response.status);
+        console.log("영상통화 응답 내용:", responseText);
+
+        let result: any = null;
+
+        try {
+          result = responseText ? JSON.parse(responseText) : null;
+        } catch {
+          result = responseText;
+        }
+
+        if (!response.ok) {
+  console.error("========== 영상통화 요청 실패 ==========");
+  console.error("요청 URL:", `${API_BASE_URL}/chat/${roomId}/video-call`);
+  console.error("HTTP 상태:", response.status);
+  console.error("서버 원본 응답:", responseText);
+  console.error("파싱된 응답:", result);
+  console.error("========================================");
+
+  throw new Error(
+    responseText || `통화 요청 실패 (${response.status})`
+  );
+}
+
+        if (action === "accept") {
+          console.log("영상통화 수락 성공:", callPk);
+
+          navigateToVideoCall(callPk, false);
+          return;
+        }
+
+        Alert.alert("영상통화", "요청을 거절했습니다.");
+      } catch (error) {
+        console.error("영상통화 응답 오류:", error);
+
+        Alert.alert(
+          "영상통화 응답 실패",
+          error instanceof Error
+            ? error.message
+            : "서버와 통신할 수 없습니다."
+        );
+      }
+    },
+    [roomId, navigateToVideoCall]
+  );
+
+  // --------------------------------------------------
+  // 영상통화 WebSocket 이벤트 처리
+  // --------------------------------------------------
+
+  const handleVideoCallEvent = useCallback(
+    (event: any) => {
+      console.log("영상통화 WebSocket 이벤트:", event);
+
+      // WebRTC OFFER / ANSWER / ICE는 이 화면에서 처리하지 않음
+      if (event.signalType) {
+        return;
+      }
+
+      const callPk = Number(event.callPk);
+      const initiatorUserPk = Number(event.initiatorUserPk);
+      const callStatus = Number(event.callStatus);
+
+      if (!callPk || !myUserPk) {
+        console.log("영상통화 이벤트 필수값 누락:", event);
+        return;
+      }
+
+      const eventKey = `${callPk}-${callStatus}`;
+
+      if (handledCallEvents.current.has(eventKey)) {
+        return;
+      }
+
+      handledCallEvents.current.add(eventKey);
+
+      // 0: REQUESTED
+      // 상대방이 나에게 영상통화를 요청한 경우
+      if (callStatus === 0 && initiatorUserPk !== myUserPk) {
+        const accept = async () => {
+          await respondToVideoCall(callPk, "accept");
+        };
+
+        const reject = async () => {
+          await respondToVideoCall(callPk, "reject");
+        };
+
+        if (Platform.OS === "web") {
+          const confirmed = window.confirm(
+            "영상통화 요청이 왔습니다. 수락할까요?"
+          );
+
+          if (confirmed) {
+            accept();
+          } else {
+            reject();
+          }
+        } else {
+          Alert.alert(
+            "영상통화 요청",
+            "상대방이 영상통화를 요청했습니다.",
+            [
+              {
+                text: "거절",
+                style: "cancel",
+                onPress: reject,
+              },
+              {
+                text: "수락",
+                onPress: accept,
+              },
+            ],
+            { cancelable: false }
+          );
+        }
+
+        return;
+      }
+
+      // 1: ACCEPTED
+      // 내가 요청한 영상통화를 상대방이 수락한 경우
+      if (callStatus === 1 && initiatorUserPk === myUserPk) {
+        console.log("상대방이 영상통화를 수락했습니다.");
+
+        navigateToVideoCall(callPk, true);
+        return;
+      }
+
+      // 2: REJECTED
+      if (callStatus === 2 && initiatorUserPk === myUserPk) {
+        Alert.alert("영상통화", "상대방이 요청을 거절했습니다.");
+        return;
+      }
+
+      // 3: ENDED
+      if (callStatus === 3) {
+        Alert.alert("영상통화", "영상통화가 종료되었습니다.");
+        return;
+      }
+
+      // 4: MISSED
+      if (callStatus === 4 && initiatorUserPk === myUserPk) {
+        Alert.alert("영상통화", "상대방이 응답하지 않았습니다.");
+        return;
+      }
+
+      // 5: CANCELED
+      if (callStatus === 5 && initiatorUserPk !== myUserPk) {
+        Alert.alert("영상통화", "상대방이 요청을 취소했습니다.");
+      }
+    },
+    [myUserPk, respondToVideoCall, navigateToVideoCall]
+  );
+
+  // --------------------------------------------------
+  // 상담 종료 요청
+  // --------------------------------------------------
+
   const requestServiceClose = () => {
     const confirmClose = () => {
       setCloseRequestState("waiting");
+
       Alert.alert(
         "상담 종료 요청",
         "종료 요청 UI 확인용입니다. 아직 백엔드 API가 연결되지 않아 상대방에게 전달되지는 않습니다.",
-        [{ text: "확인" }],
+        [{ text: "확인" }]
       );
     };
 
@@ -141,6 +353,10 @@ export default function ChatRoomScreen() {
     } as any);
   };
 
+  // --------------------------------------------------
+  // 메시지 조회
+  // --------------------------------------------------
+
   const fetchMessages = useCallback(async () => {
     if (!roomId) return;
 
@@ -153,13 +369,16 @@ export default function ChatRoomScreen() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/chat/${roomId}/messages`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/chat/${roomId}/messages`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        }
+      );
 
       if (response.status === 401 || response.status === 403) {
         Alert.alert("인증 만료", "다시 로그인해주세요.");
@@ -172,6 +391,7 @@ export default function ChatRoomScreen() {
       }
 
       const data: ChatMessage[] = await response.json();
+
       setMessages(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("메시지 조회 오류:", error);
@@ -181,11 +401,16 @@ export default function ChatRoomScreen() {
     }
   }, [roomId, router]);
 
+  // --------------------------------------------------
+  // 읽음 처리
+  // --------------------------------------------------
+
   const markAsRead = useCallback(async () => {
     if (!roomId) return;
 
     try {
       const token = await getAccessToken();
+
       if (!token) return;
 
       await fetch(`${API_BASE_URL}/chat/${roomId}/read`, {
@@ -199,14 +424,107 @@ export default function ChatRoomScreen() {
     }
   }, [roomId]);
 
+  // --------------------------------------------------
+  // 초기 데이터 로딩
+  // --------------------------------------------------
+
   useEffect(() => {
     getLoginUser().then((user) => {
-      if (user?.userPk) setMyUserPk(user.userPk);
+      if (user?.userPk) {
+        setMyUserPk(user.userPk);
+      }
     });
 
     fetchMessages();
     markAsRead();
   }, [fetchMessages, markAsRead]);
+
+  // --------------------------------------------------
+  // 영상통화 WebSocket 연결
+  // --------------------------------------------------
+
+  useEffect(() => {
+    if (!myUserPk) return;
+
+    let cancelled = false;
+    let client: Client | null = null;
+
+    const connectWebSocket = async () => {
+      try {
+        const token = await getAccessToken();
+
+        if (!token || cancelled) return;
+
+        client = new Client({
+          brokerURL: "ws://192.168.0.5:8080/ws",
+
+          connectHeaders: {
+            Authorization: `Bearer ${token}`,
+          },
+
+          reconnectDelay: 5000,
+          heartbeatIncoming: 10000,
+          heartbeatOutgoing: 10000,
+
+          onConnect: () => {
+            console.log("영상통화 WebSocket 연결 성공");
+
+            client?.subscribe(
+              "/user/queue/video-call",
+              (message) => {
+                try {
+                  const event = JSON.parse(message.body);
+
+                  handleVideoCallEvent(event);
+                } catch (error) {
+                  console.error(
+                    "영상통화 이벤트 파싱 오류:",
+                    error
+                  );
+                }
+              }
+            );
+
+            console.log("영상통화 이벤트 구독 완료");
+          },
+
+          onStompError: (frame) => {
+            console.error(
+              "WebSocket STOMP 오류:",
+              frame.headers
+            );
+
+            console.error("오류 내용:", frame.body);
+          },
+
+          onWebSocketError: (error) => {
+            console.error("WebSocket 연결 오류:", error);
+          },
+
+          onWebSocketClose: () => {
+            console.log("영상통화 WebSocket 연결 종료");
+          },
+        });
+
+        client.activate();
+      } catch (error) {
+        console.error("WebSocket 초기화 오류:", error);
+      }
+    };
+
+    connectWebSocket();
+
+    return () => {
+      cancelled = true;
+      client?.deactivate();
+
+      console.log("영상통화 WebSocket 연결 해제");
+    };
+  }, [myUserPk, handleVideoCallEvent]);
+
+  // --------------------------------------------------
+  // 사진 선택
+  // --------------------------------------------------
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -219,6 +537,133 @@ export default function ChatRoomScreen() {
       setSelectedImage(result.assets[0]);
     }
   };
+
+  // --------------------------------------------------
+  // 영상통화 요청 생성
+  // --------------------------------------------------
+
+  const startVideoCall = async () => {
+    if (!roomId || calling) return;
+
+    setCalling(true);
+
+    try {
+      const token = await getAccessToken();
+
+      if (!token) {
+        Alert.alert("로그인 필요", "로그인 후 이용해주세요.");
+        return;
+      }
+
+      const requestUrl =
+        `${API_BASE_URL}/chat/${roomId}/video-call`;
+
+      console.log("========== 영상통화 요청 시작 ==========");
+      console.log("요청 URL:", requestUrl);
+      console.log("roomId:", roomId);
+
+      const response = await fetch(requestUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: "application/json",
+        },
+      });
+
+      const responseText = await response.text();
+
+      console.log("영상통화 HTTP 상태:", response.status);
+      console.log("영상통화 서버 응답:", responseText);
+
+      let result: any = null;
+
+      try {
+        result = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        result = responseText;
+      }
+
+      if (!response.ok) {
+        const errorMessage =
+          typeof result === "object" && result !== null
+            ? result.message || result.error
+            : result;
+
+        throw new Error(
+          errorMessage || `통화 요청 실패 (${response.status})`
+        );
+      }
+
+      console.log("영상통화 생성 성공:", result);
+
+      Alert.alert(
+        "통화 요청 성공",
+        "상대방에게 영상통화 요청을 보냈습니다. 상대방의 수락을 기다려주세요."
+      );
+    } catch (error) {
+      console.error("========== 영상통화 요청 실패 ==========");
+      console.error(error);
+
+      let errorMessage =
+        error instanceof Error
+          ? error.message
+          : "알 수 없는 오류가 발생했습니다.";
+
+      if (
+        Platform.OS === "web" &&
+        error instanceof TypeError &&
+        error.message.toLowerCase().includes("fetch")
+      ) {
+        errorMessage =
+          "서버에 연결할 수 없습니다.\n\n" +
+          "백엔드 실행 상태와 CORS 설정을 확인해주세요.\n" +
+          "브라우저 개발자 도구의 Network 탭에서 OPTIONS 또는 POST 요청도 확인해주세요.";
+      }
+
+      Alert.alert("영상통화 요청 실패", errorMessage);
+    } finally {
+      setCalling(false);
+    }
+  };
+
+  // --------------------------------------------------
+  // + 버튼 메뉴
+  // --------------------------------------------------
+
+  const openAttachmentMenu = () => {
+    if (Platform.OS === "web") {
+      const choice = window.confirm(
+        "사진 첨부를 선택하려면 확인, 영상통화를 선택하려면 취소를 누르세요."
+      );
+
+      if (choice) {
+        pickImage();
+      } else {
+        startVideoCall();
+      }
+
+      return;
+    }
+
+    Alert.alert("첨부하기", "원하는 기능을 선택해 주세요.", [
+      {
+        text: "사진 첨부",
+        onPress: pickImage,
+      },
+      {
+        text: "영상통화",
+        onPress: startVideoCall,
+      },
+      {
+        text: "취소",
+        style: "cancel",
+      },
+    ]);
+  };
+
+  // --------------------------------------------------
+  // 메시지 전송
+  // --------------------------------------------------
 
   const sendMessage = async () => {
     const trimmed = input.trim();
@@ -235,42 +680,56 @@ export default function ChatRoomScreen() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/chat/${roomId}/message`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          msgContent: trimmed,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/chat/${roomId}/message`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            msgContent: trimmed,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `전송 실패 (${response.status})`);
+
+        throw new Error(
+          errorText || `전송 실패 (${response.status})`
+        );
       }
 
       setInput("");
       await fetchMessages();
     } catch (error) {
       console.error("메시지 전송 오류:", error);
+
       Alert.alert(
         "전송 실패",
-        "메시지를 보내지 못했습니다. 다시 시도해주세요.",
+        "메시지를 보내지 못했습니다. 다시 시도해주세요."
       );
     } finally {
       setSending(false);
     }
   };
 
+  // --------------------------------------------------
+  // 메시지 수정
+  // --------------------------------------------------
+
   const updateMessage = async (msgPk: number) => {
     const trimmed = editText.trim();
+
     if (!trimmed || processingMessage || !roomId) return;
 
     setProcessingMessage(true);
+
     try {
       const token = await getAccessToken();
+
       if (!token) {
         Alert.alert("로그인 필요", "로그인 후 이용해주세요.");
         return;
@@ -284,26 +743,40 @@ export default function ChatRoomScreen() {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ msgContent: trimmed }),
-        },
+          body: JSON.stringify({
+            msgContent: trimmed,
+          }),
+        }
       );
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `수정 실패 (${response.status})`);
+
+        throw new Error(
+          errorText || `수정 실패 (${response.status})`
+        );
       }
 
       setEditingMessagePk(null);
       setActionMessagePk(null);
       setEditText("");
+
       await fetchMessages();
     } catch (error) {
       console.error("메시지 수정 오류:", error);
-      Alert.alert("수정 실패", "메시지를 수정하지 못했습니다.");
+
+      Alert.alert(
+        "수정 실패",
+        "메시지를 수정하지 못했습니다."
+      );
     } finally {
       setProcessingMessage(false);
     }
   };
+
+  // --------------------------------------------------
+  // 메시지 삭제
+  // --------------------------------------------------
 
   const deleteMessage = async (msgPk: number) => {
     if (processingMessage || !roomId) return;
@@ -313,7 +786,11 @@ export default function ChatRoomScreen() {
         ? window.confirm("이 메시지를 삭제할까요?")
         : await new Promise<boolean>((resolve) => {
             Alert.alert("메시지 삭제", "이 메시지를 삭제할까요?", [
-              { text: "취소", style: "cancel", onPress: () => resolve(false) },
+              {
+                text: "취소",
+                style: "cancel",
+                onPress: () => resolve(false),
+              },
               {
                 text: "삭제",
                 style: "destructive",
@@ -325,8 +802,10 @@ export default function ChatRoomScreen() {
     if (!confirmed) return;
 
     setProcessingMessage(true);
+
     try {
       const token = await getAccessToken();
+
       if (!token) {
         Alert.alert("로그인 필요", "로그인 후 이용해주세요.");
         return;
@@ -336,24 +815,38 @@ export default function ChatRoomScreen() {
         `${API_BASE_URL}/chat/${roomId}/message/${msgPk}`,
         {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `삭제 실패 (${response.status})`);
+
+        throw new Error(
+          errorText || `삭제 실패 (${response.status})`
+        );
       }
 
       setActionMessagePk(null);
+
       await fetchMessages();
     } catch (error) {
       console.error("메시지 삭제 오류:", error);
-      Alert.alert("삭제 실패", "메시지를 삭제하지 못했습니다.");
+
+      Alert.alert(
+        "삭제 실패",
+        "메시지를 삭제하지 못했습니다."
+      );
     } finally {
       setProcessingMessage(false);
     }
   };
+
+  // --------------------------------------------------
+  // 이미지 전송
+  // --------------------------------------------------
 
   const sendImage = async () => {
     if (!selectedImage || sending || !roomId) return;
@@ -376,43 +869,62 @@ export default function ChatRoomScreen() {
 
         formData.append(
           "images",
-          new File([blob], selectedImage.fileName || "image.jpg", {
-            type: blob.type || "image/jpeg",
-          }),
+          new File(
+            [blob],
+            selectedImage.fileName || "image.jpg",
+            {
+              type: blob.type || "image/jpeg",
+            }
+          )
         );
       } else {
-        formData.append("images", {
-          uri: selectedImage.uri,
-          name: selectedImage.fileName || "image.jpg",
-          type: selectedImage.mimeType || "image/jpeg",
-        } as any);
+        formData.append(
+          "images",
+          {
+            uri: selectedImage.uri,
+            name: selectedImage.fileName || "image.jpg",
+            type: selectedImage.mimeType || "image/jpeg",
+          } as any
+        );
       }
 
-      const response = await fetch(`${API_BASE_URL}/chat/${roomId}/images`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/chat/${roomId}/images`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(errorText || `이미지 전송 실패 (${response.status})`);
+
+        throw new Error(
+          errorText || `이미지 전송 실패 (${response.status})`
+        );
       }
 
       setSelectedImage(null);
+
       await fetchMessages();
     } catch (error) {
       console.error("이미지 전송 오류:", error);
+
       Alert.alert(
         "전송 실패",
-        "이미지를 보내지 못했습니다. 다시 시도해주세요.",
+        "이미지를 보내지 못했습니다. 다시 시도해주세요."
       );
     } finally {
       setSending(false);
     }
   };
+
+  // --------------------------------------------------
+  // 화면
+  // --------------------------------------------------
 
   return (
     <KeyboardAvoidingView
@@ -421,18 +933,25 @@ export default function ChatRoomScreen() {
       keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
     >
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
           <Text style={styles.backText}>‹</Text>
         </Pressable>
 
-        <Text style={styles.headerName}>{name || "스타일리스트"}</Text>
+        <Text style={styles.headerName}>
+          {name || "스타일리스트"}
+        </Text>
 
         {!isReadOnly && closeRequestState === "idle" && (
           <Pressable
             style={styles.headerCloseButton}
             onPress={requestServiceClose}
           >
-            <Text style={styles.headerCloseButtonText}>서비스 종료</Text>
+            <Text style={styles.headerCloseButtonText}>
+              서비스 종료
+            </Text>
           </Pressable>
         )}
 
@@ -441,7 +960,9 @@ export default function ChatRoomScreen() {
             style={styles.headerWaitingButton}
             onPress={cancelServiceClose}
           >
-            <Text style={styles.headerWaitingButtonText}>요청 취소</Text>
+            <Text style={styles.headerWaitingButtonText}>
+              요청 취소
+            </Text>
           </Pressable>
         )}
       </View>
@@ -451,10 +972,13 @@ export default function ChatRoomScreen() {
           <Text style={styles.closeWaitingTitle}>
             상담 종료 요청을 보냈어요
           </Text>
+
           <Text style={styles.closeWaitingDesc}>
             상대방의 수락을 기다리고 있습니다.
-            {"\n"}현재는 API 연결 전이라 실제 상대방에게 전달되지는 않습니다.
+            {"\n"}
+            현재는 API 연결 전이라 실제 상대방에게 전달되지는 않습니다.
           </Text>
+
           <Pressable
             onPress={goToServiceComplete}
             style={{
@@ -473,7 +997,10 @@ export default function ChatRoomScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={PURPLE} />
+          <ActivityIndicator
+            size="large"
+            color={PURPLE}
+          />
         </View>
       ) : (
         <FlatList
@@ -484,13 +1011,17 @@ export default function ChatRoomScreen() {
           inverted={false}
           keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => {
-            const isMine = myUserPk !== null && item.senderPk === myUserPk;
+            const isMine =
+              myUserPk !== null &&
+              item.senderPk === myUserPk;
 
             return (
               <View
                 style={[
                   styles.messageWrapper,
-                  isMine ? styles.myMessageWrapper : styles.otherMessageWrapper,
+                  isMine
+                    ? styles.myMessageWrapper
+                    : styles.otherMessageWrapper,
                 ]}
               >
                 {!isMine && (
@@ -513,16 +1044,22 @@ export default function ChatRoomScreen() {
                     onPress={() => {
                       if (isMine && !isReadOnly) {
                         setActionMessagePk(
-                          actionMessagePk === item.msgPk ? null : item.msgPk,
+                          actionMessagePk === item.msgPk
+                            ? null
+                            : item.msgPk
                         );
                       }
                     }}
                     onLongPress={() => {
-                      if (isMine && !isReadOnly) setActionMessagePk(item.msgPk);
+                      if (isMine && !isReadOnly) {
+                        setActionMessagePk(item.msgPk);
+                      }
                     }}
                     style={[
                       styles.bubble,
-                      isMine ? styles.myBubble : styles.otherBubble,
+                      isMine
+                        ? styles.myBubble
+                        : styles.otherBubble,
                     ]}
                   >
                     {editingMessagePk === item.msgPk ? (
@@ -533,6 +1070,7 @@ export default function ChatRoomScreen() {
                           multiline
                           style={styles.editInput}
                         />
+
                         <View style={styles.editActions}>
                           <Pressable
                             onPress={() => {
@@ -540,28 +1078,42 @@ export default function ChatRoomScreen() {
                               setActionMessagePk(null);
                             }}
                           >
-                            <Text style={styles.editCancel}>취소</Text>
+                            <Text style={styles.editCancel}>
+                              취소
+                            </Text>
                           </Pressable>
+
                           <Pressable
-                            onPress={() => updateMessage(item.msgPk)}
-                            disabled={!editText.trim() || processingMessage}
+                            onPress={() =>
+                              updateMessage(item.msgPk)
+                            }
+                            disabled={
+                              !editText.trim() ||
+                              processingMessage
+                            }
                           >
                             <Text style={styles.editSave}>
-                              {processingMessage ? "완료 중" : "완료"}
+                              {processingMessage
+                                ? "완료 중"
+                                : "완료"}
                             </Text>
                           </Pressable>
                         </View>
                       </View>
-                    ) : item.imageUrls && item.imageUrls.length > 0 ? (
+                    ) : item.imageUrls &&
+                      item.imageUrls.length > 0 ? (
                       <View>
-                        {item.imageUrls.map((imageUrl, index) => (
-                          <Image
-                            key={`${item.msgPk}-${index}`}
-                            source={{ uri: imageUrl }}
-                            style={styles.sentImage}
-                            resizeMode="cover"
-                          />
-                        ))}
+                        {item.imageUrls.map(
+                          (imageUrl, index) => (
+                            <Image
+                              key={`${item.msgPk}-${index}`}
+                              source={{ uri: imageUrl }}
+                              style={styles.sentImage}
+                              resizeMode="cover"
+                            />
+                          )
+                        )}
+
                         {!!item.msgContent && (
                           <Text
                             style={[
@@ -601,15 +1153,22 @@ export default function ChatRoomScreen() {
                               setEditingMessagePk(item.msgPk);
                             }}
                           >
-                            <Text style={styles.actionText}>수정</Text>
+                            <Text style={styles.actionText}>
+                              수정
+                            </Text>
                           </Pressable>
                         )}
+
                         <Pressable
-                          onPress={() => deleteMessage(item.msgPk)}
+                          onPress={() =>
+                            deleteMessage(item.msgPk)
+                          }
                           disabled={processingMessage}
                         >
                           <Text style={styles.deleteActionText}>
-                            {processingMessage ? "처리 중" : "삭제"}
+                            {processingMessage
+                              ? "처리 중"
+                              : "삭제"}
                           </Text>
                         </Pressable>
                       </View>
@@ -623,7 +1182,9 @@ export default function ChatRoomScreen() {
             );
           }}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>아직 메시지가 없습니다.</Text>
+            <Text style={styles.emptyText}>
+              아직 메시지가 없습니다.
+            </Text>
           }
         />
       )}
@@ -649,10 +1210,16 @@ export default function ChatRoomScreen() {
         <View
           style={[
             styles.inputContainer,
-            { paddingBottom: 10 + insets.bottom },
+            {
+              paddingBottom: 10 + insets.bottom,
+            },
           ]}
         >
-          <Pressable style={styles.imageButton} onPress={pickImage}>
+          <Pressable
+            style={styles.imageButton}
+            onPress={openAttachmentMenu}
+            disabled={calling}
+          >
             <Text style={styles.imageButtonText}>＋</Text>
           </Pressable>
 
@@ -673,11 +1240,19 @@ export default function ChatRoomScreen() {
               ((!input.trim() && !selectedImage) || sending) &&
                 styles.disabledSendButton,
             ]}
-            onPress={selectedImage ? sendImage : sendMessage}
-            disabled={(!input.trim() && !selectedImage) || sending}
+            onPress={
+              selectedImage ? sendImage : sendMessage
+            }
+            disabled={
+              (!input.trim() && !selectedImage) || sending
+            }
           >
             <Text style={styles.sendButtonText}>
-              {sending ? "전송 중" : selectedImage ? "사진 전송" : "전송"}
+              {sending
+                ? "전송 중"
+                : selectedImage
+                  ? "사진 전송"
+                  : "전송"}
             </Text>
           </Pressable>
         </View>
@@ -685,6 +1260,10 @@ export default function ChatRoomScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+// --------------------------------------------------
+// 스타일
+// --------------------------------------------------
 
 const styles = StyleSheet.create({
   container: {
