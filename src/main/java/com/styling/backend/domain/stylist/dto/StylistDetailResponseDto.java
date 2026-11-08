@@ -32,6 +32,7 @@ public class StylistDetailResponseDto {
     @Getter
     @AllArgsConstructor
     public static class PlanDto {
+        private Long stylistPlanPk;
         private Integer planPk;
         private String planTier;
         private String planCode;

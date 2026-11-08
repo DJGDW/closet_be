@@ -57,6 +57,10 @@ public class OrderServiceImpl implements OrderService {
                 .findById(request.getStylistPlanPk())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REQUEST));
 
+        if (!stylistPlan.isActive()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
         String orderId = "ORDER-" + UUID.randomUUID()
                 .toString()
                 .replace("-", "");
@@ -401,6 +405,10 @@ public class OrderServiceImpl implements OrderService {
                 .findById(stylistPlanPk)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_REQUEST));
 
+        if (!targetPlan.isActive()) {
+            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+        }
+
         if (!order.getStylist().getStylistPk()
                 .equals(targetPlan.getStylist().getStylistPk())) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
@@ -545,7 +553,9 @@ public class OrderServiceImpl implements OrderService {
         int currentPrice = order.getStylistPlan().getPrice();
 
         return stylistPlanRepository
-                .findAllByStylist_StylistPk(order.getStylist().getStylistPk())
+                .findAllByStylist_StylistPkAndActiveTrue(
+                        order.getStylist().getStylistPk()
+                )
                 .stream()
                 .filter(stylistPlan ->
                         getPlanTier(stylistPlan.getPlan().getPlanCode()) > currentTier
