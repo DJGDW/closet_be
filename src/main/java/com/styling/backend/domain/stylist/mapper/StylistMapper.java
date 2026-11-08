@@ -63,6 +63,7 @@ public class StylistMapper {
         List<StylistDetailResponseDto.PlanDto> plans =
                 stylistPlans.stream()
                         .map(item -> new StylistDetailResponseDto.PlanDto(
+                                item.getStylistPlanPk(),
                                 item.getPlan().getPlanPk(),
                                 item.getPlan().getPlanTier(),
                                 item.getPlan().getPlanCode(),
