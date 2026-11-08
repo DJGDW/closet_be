@@ -178,7 +178,7 @@ export default function SignupStep1() {
     setIsCheckingId(true);
 
     try {
-      const url = `https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev/user/check-id?userId=${encodeURIComponent(trimmedUserId)}`;
+      const url = `http://192.168.0.5:8080/user/check-id?userId=${encodeURIComponent(trimmedUserId)}`;
 
       const response = await fetch(url);
 

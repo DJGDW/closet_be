@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import { router, useFocusEffect } from "expo-router";
 
-const API_BASE_URL = "https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 type NotificationItem = {
   notificationPk: number;

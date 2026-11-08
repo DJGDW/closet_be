@@ -1,7 +1,0 @@
-export JWT_SECRET="dGVzdC1zZWNyZXQta2V5LXRlc3Qtc2VjcmV0LWtleS0xMjM0"
-export CLOUDINARY_CLOUD_NAME=dummy
-export CLOUDINARY_API_KEY=dummy
-export CLOUDINARY_API_SECRET=dummy
-export TOSS_SECRET_KEY=dummy
-export DB_USERNAME=sa
-export DB_PASSWORD=

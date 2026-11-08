@@ -32,7 +32,7 @@ export default function LoginScreen() {
     setMessage("로그인 중...");
 
     try {
-      const response = await fetch("https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev/user/login", {
+      const response = await fetch("http://192.168.0.5:8080/user/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

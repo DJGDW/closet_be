@@ -18,7 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import styles from "../styles/stylist-register.styles";
 
-const API_BASE_URL = "https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 const LOCATIONS = [
   { id: 1, name: "서울특별시" },

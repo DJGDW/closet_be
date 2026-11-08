@@ -22,7 +22,7 @@ import {
 import * as SecureStore from "expo-secure-store";
 import * as Linking from "expo-linking";
 
-const API_BASE_URL = "https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev";
+const API_BASE_URL = "http://192.168.0.5:8080";
 const TOSS_CLIENT_KEY = "test_ck_c19w7vBoxDeUvpgeSDlJHtMJUy9H7c7XDl";
 const PURPLE = "#51458C";
 
