@@ -6,14 +6,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.MessageHandler;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.messaging.support.ExecutorChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
@@ -135,6 +141,40 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             "채팅방 참여자만 구독할 수 있습니다."
                     );
                 }
+            }
+        });
+
+        // @MessageMapping 핸들러가 실행되는 스레드에도 SecurityContext를 채운다.
+        // (서비스의 getAuthenticatedUser()가 SecurityContextHolder를 읽기 때문)
+        registration.interceptors(new ExecutorChannelInterceptor() {
+
+            @Override
+            public Message<?> beforeHandle(
+                    Message<?> message,
+                    MessageChannel channel,
+                    MessageHandler handler
+            ) {
+                Object user = message.getHeaders()
+                        .get(SimpMessageHeaderAccessor.USER_HEADER);
+
+                if (user instanceof Authentication authentication) {
+                    SecurityContext context =
+                            SecurityContextHolder.createEmptyContext();
+                    context.setAuthentication(authentication);
+                    SecurityContextHolder.setContext(context);
+                }
+
+                return message;
+            }
+
+            @Override
+            public void afterMessageHandled(
+                    Message<?> message,
+                    MessageChannel channel,
+                    MessageHandler handler,
+                    Exception ex
+            ) {
+                SecurityContextHolder.clearContext();
             }
         });
     }

@@ -13,7 +13,9 @@ import com.styling.backend.domain.user.repository.UserRepository;
 import com.styling.backend.exception.BusinessException;
 import com.styling.backend.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -30,6 +33,7 @@ public class VideoCallServiceImpl implements VideoCallService {
     private final ChatRoomRepository chatRoomRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final SimpUserRegistry userRegistry;
 
     @Override
     @Transactional
@@ -166,6 +170,12 @@ public class VideoCallServiceImpl implements VideoCallService {
         }
 
         User recipient = getOtherParticipant(videoCall.getChatRoom(), user);
+
+        if ("OFFER".equals(signalType)) {
+            log.info("[시그널] OFFER : {} -> {} (수신자 접속={})",
+                    user.getUserId(), recipient.getUserId(),
+                    userRegistry.getUser(recipient.getUserId()) != null);
+        }
 
         VideoCallSignalResponseDto response = new VideoCallSignalResponseDto(
                 videoCall.getCallPk(),
