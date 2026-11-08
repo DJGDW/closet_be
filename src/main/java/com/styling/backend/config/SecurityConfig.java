@@ -57,8 +57,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOrigins(List.of(
-                "http://localhost:8081"
+        configuration.setAllowedOriginPatterns(List.of(
+                "http://localhost:8081",
+                "https://*.app.github.dev"
         ));
 
         configuration.setAllowedMethods(List.of(
