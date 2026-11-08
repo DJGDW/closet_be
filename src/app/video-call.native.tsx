@@ -19,8 +19,8 @@ import {
   RTCSessionDescription,
 } from "react-native-webrtc";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
-const WS_URL = "ws://192.168.0.5:8080/ws";
+const API_BASE_URL = "https://";
+const WS_URL = "wss:///ws";
 
 // 백엔드 VideoCall.STATUS_* 값
 const STATUS_REJECTED = 2;
@@ -452,32 +452,42 @@ export default function VideoCallScreen() {
 
           // 상대방 이벤트 구독
           client.subscribe("/user/queue/video-call", (message) => {
-            try {
-              const event = JSON.parse(message.body);
+  console.log("[영상통화] 메시지 수신 원본:", message.body);
 
-              // 다른 통화의 이벤트 무시
-              if (Number(event.callPk) !== Number(callPk)) {
-                return;
-              }
+  try {
+    const event = JSON.parse(message.body);
 
-              // 통화 상태 이벤트 (거절/종료/부재중/취소)
-              if (FINISHED_STATUSES.includes(Number(event.callStatus))) {
-                console.log("통화가 종료되었습니다. status:", event.callStatus);
+    console.log("[영상통화] 이벤트 분석:", {
+      receivedCallPk: event.callPk,
+      currentCallPk: callPk,
+      signalType: event.signalType,
+      callStatus: event.callStatus,
+    });
 
-                setStatus("통화가 종료되었습니다.");
+    // 다른 통화의 이벤트 무시
+    if (Number(event.callPk) !== Number(callPk)) {
+      console.log("[영상통화] callPk 불일치로 무시");
+      return;
+    }
 
-                finishCallScreen();
-                return;
-              }
+    // 통화 상태 이벤트
+    if (FINISHED_STATUSES.includes(Number(event.callStatus))) {
+      console.log("통화가 종료되었습니다. status:", event.callStatus);
 
-              // WebRTC 시그널 처리
-              if (event.signalType) {
-                handleSignal(event);
-              }
-            } catch (error) {
-              console.error("시그널 파싱 오류:", error);
-            }
-          });
+      setStatus("통화가 종료되었습니다.");
+      finishCallScreen();
+      return;
+    }
+
+    // WebRTC 시그널 처리
+    if (event.signalType) {
+      console.log("[영상통화] 시그널 처리:", event.signalType);
+      handleSignal(event);
+    }
+  } catch (error) {
+    console.error("시그널 파싱 오류:", error);
+  }
+});
 
           if (caller) {
             // 발신자: 구독을 마쳤으니 OFFER 전송 시작

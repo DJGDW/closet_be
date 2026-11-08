@@ -3,8 +3,8 @@ import { View, Text, Pressable, StyleSheet, Alert } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Client } from "@stomp/stompjs";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
-const WS_URL = "ws://192.168.0.5:8080/ws";
+const API_BASE_URL = "https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev";
+const WS_URL = "wss://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev/ws";
 
 // 백엔드 VideoCall.STATUS_* 값
 const STATUS_REJECTED = 2;

@@ -10,7 +10,7 @@ import {
 import * as SecureStore from "expo-secure-store";
 
 const PURPLE = "#6246a1";
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev";
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();

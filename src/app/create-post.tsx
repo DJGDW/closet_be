@@ -19,7 +19,7 @@ import {
 } from "react-native";
 import styles from "../styles/create-post.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";;
+const API_BASE_URL = "https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev";;
 
 const STYLES = [
   { id: 1, label: "캐주얼" },

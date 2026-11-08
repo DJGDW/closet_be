@@ -13,7 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+const API_BASE_URL = "https://verbose-goggles-vpgr5446g7472pr5v-8080.app.github.dev";
 
 export default function ReviewScreen() {
   const router = useRouter();
