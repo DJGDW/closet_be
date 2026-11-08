@@ -34,4 +34,4 @@ application-local.yml
 
 .env
 .env.*
-!.env.example
+!.env.exampletest-env.sh
