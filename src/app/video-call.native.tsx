@@ -19,8 +19,8 @@ import {
   RTCSessionDescription,
 } from "react-native-webrtc";
 
-const API_BASE_URL = "https://";
-const WS_URL = "wss:///ws";
+const API_BASE_URL = "http://192.168.0.5:8080";
+const WS_URL = "ws://192.168.0.5:8080/ws";
 
 // 백엔드 VideoCall.STATUS_* 값
 const STATUS_REJECTED = 2;
