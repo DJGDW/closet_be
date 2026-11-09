@@ -1,4 +1,3 @@
-
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -34,6 +33,8 @@ const PAYMENT_METHODS = [
 ];
 
 type PlanDto = {
+  // 스타일리스트별 플랜 PK (주문 생성 API에 필요). planPk는 공통 플랜 종류 PK라 주문에 쓰면 안 됨
+  stylistPlanPk?: number;
   planPk: number;
   planTier: string;
   planCode: string;
@@ -90,10 +91,8 @@ export default function PaymentScreen() {
   const paymentHandledRef = useRef(false);
   const externalLaunchUrlRef = useRef<string | null>(null);
 
-  const [stylist, setStylist] =
-    useState<StylistDetailResponse | null>(null);
-  const [selectedService, setSelectedService] =
-    useState<PlanDto | null>(null);
+  const [stylist, setStylist] = useState<StylistDetailResponse | null>(null);
+  const [selectedService, setSelectedService] = useState<PlanDto | null>(null);
 
   const [paymentMethod, setPaymentMethod] = useState("card");
   const [agreed, setAgreed] = useState(false);
@@ -252,28 +251,23 @@ export default function PaymentScreen() {
       throw new Error("로그인이 필요합니다.");
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/order/payment/confirm`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          paymentKey,
-          orderId,
-          amount,
-        }),
+    const response = await fetch(`${API_BASE_URL}/order/payment/confirm`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        paymentKey,
+        orderId,
+        amount,
+      }),
+    });
 
     const result = await response.json().catch(() => null);
 
     if (!response.ok) {
-      throw new Error(
-        result?.message || `결제 승인 실패 (${response.status})`,
-      );
+      throw new Error(result?.message || `결제 승인 실패 (${response.status})`);
     }
 
     setPaymentHtml("");
@@ -306,12 +300,9 @@ export default function PaymentScreen() {
     const host = parsedUrl.hostname;
 
     const isSuccess =
-      path.endsWith("/payment-success") ||
-      host === "payment-success";
+      path.endsWith("/payment-success") || host === "payment-success";
 
-    const isFail =
-      path.endsWith("/payment-fail") ||
-      host === "payment-fail";
+    const isFail = path.endsWith("/payment-fail") || host === "payment-fail";
 
     if (!isSuccess && !isFail) {
       return true;
@@ -375,9 +366,7 @@ export default function PaymentScreen() {
 
       Alert.alert(
         "결제 승인 실패",
-        error instanceof Error
-          ? error.message
-          : "결제 승인에 실패했습니다.",
+        error instanceof Error ? error.message : "결제 승인에 실패했습니다.",
       );
     });
 
@@ -413,6 +402,14 @@ export default function PaymentScreen() {
         throw new Error("로그인이 필요합니다. 다시 로그인해주세요.");
       }
 
+      const stylistPlanPk = Number(selectedService?.stylistPlanPk);
+
+      if (!Number.isFinite(stylistPlanPk) || stylistPlanPk <= 0) {
+        throw new Error(
+          "플랜 정보를 불러오지 못했어요. 앱을 새로고침하거나 백엔드를 최신으로 업데이트한 뒤 다시 시도해 주세요.",
+        );
+      }
+
       // 1. 주문 생성
       const orderResponse = await fetch(`${API_BASE_URL}/order`, {
         method: "POST",
@@ -421,7 +418,7 @@ export default function PaymentScreen() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          stylistPlanPk: Number(planPk),
+          stylistPlanPk,
         }),
       });
 
@@ -429,13 +426,11 @@ export default function PaymentScreen() {
 
       if (!orderResponse.ok) {
         throw new Error(
-          orderResult?.message ||
-            `주문 생성 실패 (${orderResponse.status})`,
+          orderResult?.message || `주문 생성 실패 (${orderResponse.status})`,
         );
       }
 
-      const order =
-        orderResult?.data ?? orderResult?.result ?? orderResult;
+      const order = orderResult?.data ?? orderResult?.result ?? orderResult;
 
       const orderId = String(order?.orderId ?? "");
       const amount = Number(order?.amount);
@@ -541,9 +536,7 @@ export default function PaymentScreen() {
 
       Alert.alert(
         "결제 실행 실패",
-        error instanceof Error
-          ? error.message
-          : "결제창을 열지 못했습니다.",
+        error instanceof Error ? error.message : "결제창을 열지 못했습니다.",
       );
     }
   };
@@ -784,9 +777,7 @@ export default function PaymentScreen() {
               alignItems: "center",
             }}
           >
-            <Text style={{ fontSize: 12, color: "#55515D" }}>
-              서비스 가격
-            </Text>
+            <Text style={{ fontSize: 12, color: "#55515D" }}>서비스 가격</Text>
 
             <Text style={{ fontSize: 12, color: "#292633" }}>
               ₩{price.toLocaleString("ko-KR")}
@@ -1098,10 +1089,7 @@ export default function PaymentScreen() {
                 errorUrl.includes("payment-success") ||
                 errorUrl.includes("payment-fail")
               ) {
-                console.log(
-                  "WebView 오류에서 결제 리다이렉트 감지:",
-                  errorUrl,
-                );
+                console.log("WebView 오류에서 결제 리다이렉트 감지:", errorUrl);
 
                 handleWebViewNavigation(errorUrl);
                 return;
@@ -1127,10 +1115,7 @@ export default function PaymentScreen() {
 
               closePaymentWebView();
 
-              Alert.alert(
-                "오류",
-                "결제 페이지를 불러오지 못했습니다.",
-              );
+              Alert.alert("오류", "결제 페이지를 불러오지 못했습니다.");
             }}
           />
         </View>

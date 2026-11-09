@@ -1,4 +1,4 @@
-
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -17,10 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import { router, useFocusEffect } from "expo-router";
 
-import BellIcon from "../../assets/icons/bell.svg";
-import PlusIcon from "../../assets/icons/plusicon.svg";
-
-import { styles } from "../styles/feed.styles";
+import { COLORS, styles } from "../styles/feed.styles";
 
 const API_BASE_URL = "http://192.168.0.5:8080";
 
@@ -32,6 +29,9 @@ type FeedPost = {
   stylistPk: number;
   stylistNickname: string;
   stylistRating?: number | null;
+  stylistProfileImage?: string | null;
+  profileImage?: string | null;
+  stylistProfilePic?: string | null;
   viewCount?: number;
   likeCount?: number;
   recommendationScore?: number;
@@ -46,6 +46,14 @@ type RecommendedResponse = {
 type UnreadCountResponse = {
   unreadCount: number;
 };
+
+// 좋아요 수 표기: 1234 -> 1.2천, 12345 -> 1.2만
+function formatCount(value?: number | null) {
+  const n = Number(value ?? 0);
+  if (n >= 10000) return `${(n / 10000).toFixed(1)}만`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}천`;
+  return String(n);
+}
 
 export default function FeedScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
@@ -230,23 +238,18 @@ export default function FeedScreen() {
           </View>
 
           <View style={styles.headerActions}>
-            <Pressable
-              style={styles.headerIconButton}
-              onPress={() => router.push("/create-post")}
-              accessibilityRole="button"
-              accessibilityLabel="게시물 작성"
-            >
-              <PlusIcon width={25} height={25} />
-            </Pressable>
-
-            <Pressable
+                        <Pressable
               style={styles.headerIconButton}
               onPress={handleNotificationPress}
               accessibilityRole="button"
               accessibilityLabel={`알림 ${unreadCount}개`}
             >
               <View>
-                <BellIcon width={23} height={23} />
+                <Ionicons
+                  name="notifications-outline"
+                  size={24}
+                  color={COLORS.text}
+                />
 
                 {unreadCount > 0 && (
                   <View
@@ -290,69 +293,40 @@ export default function FeedScreen() {
           }
         >
           {loading ? (
-            <View
-              style={{
-                paddingVertical: 48,
-                alignItems: "center",
-              }}
-            >
-              <ActivityIndicator size="large" color="#4D458B" />
-              <Text
-                style={{
-                  marginTop: 12,
-                  color: "#777777",
-                }}
-              >
+            <View style={styles.stateWrap}>
+              <ActivityIndicator size="large" color={COLORS.purple} />
+              <Text style={[styles.stateText, { marginTop: 14 }]}>
                 추천 스타일을 불러오는 중...
               </Text>
             </View>
           ) : errorMessage ? (
-            <View
-              style={{
-                paddingVertical: 48,
-                paddingHorizontal: 20,
-                alignItems: "center",
-              }}
-            >
-              <Text
-                style={{
-                  color: "#777777",
-                  textAlign: "center",
-                  marginBottom: 16,
-                }}
-              >
-                {errorMessage}
-              </Text>
+            <View style={styles.stateWrap}>
+              <View style={styles.stateIconCircle}>
+                <Ionicons
+                  name="alert-circle-outline"
+                  size={30}
+                  color={COLORS.purple}
+                />
+              </View>
+              <Text style={styles.stateText}>{errorMessage}</Text>
 
               <Pressable
                 onPress={fetchRecommendedPosts}
-                style={{
-                  paddingHorizontal: 20,
-                  paddingVertical: 10,
-                  borderRadius: 8,
-                  backgroundColor: "#4D458B",
-                }}
+                style={styles.retryButton}
               >
-                <Text
-                  style={{
-                    color: "#FFFFFF",
-                    fontWeight: "600",
-                  }}
-                >
-                  다시 시도
-                </Text>
+                <Text style={styles.retryText}>다시 시도</Text>
               </Pressable>
             </View>
           ) : posts.length === 0 ? (
-            <View
-              style={{
-                paddingVertical: 48,
-                alignItems: "center",
-              }}
-            >
-              <Text style={{ color: "#777777" }}>
-                아직 추천할 게시물이 없어요.
-              </Text>
+            <View style={styles.stateWrap}>
+              <View style={styles.stateIconCircle}>
+                <Ionicons
+                  name="images-outline"
+                  size={28}
+                  color={COLORS.purple}
+                />
+              </View>
+              <Text style={styles.stateText}>아직 추천할 게시물이 없어요.</Text>
             </View>
           ) : (
             <View style={styles.feedGrid}>
@@ -372,55 +346,42 @@ export default function FeedScreen() {
                     />
 
                     <LinearGradient
-                      colors={[
-                        "rgba(0,0,0,0)",
-                        "rgba(0,0,0,0.2)",
-                        "rgba(0,0,0,0.9)",
-                      ]}
-                      locations={[0, 0.4, 1]}
+                      colors={["rgba(0,0,0,0)", "rgba(10,8,20,0.6)"]}
+                      locations={[0, 1]}
                       style={styles.imageGradient}
                       pointerEvents="none"
                     />
                   </Pressable>
 
                   <Pressable
-                    style={[
-                      styles.stylistInfo,
-                      {
-                        zIndex: 2,
-                        elevation: 2,
-                      },
-                    ]}
+                    style={styles.stylistInfo}
                     onPress={() => handleStylistPress(post)}
                     accessibilityRole="button"
                     accessibilityLabel={`${
                       post.stylistNickname || "스타일리스트"
                     } 프로필 보기`}
                   >
-                    <View
-                      style={{
-                        width: 30,
-                        height: 30,
-                        borderRadius: 17,
-                        borderWidth: 1,
-                        borderColor: "rgba(255,255,255,0.9)",
-                        backgroundColor: "rgba(255,255,255,0.18)",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: "#FFFFFF",
-                          fontSize: 12,
-                          fontWeight: "700",
-                        }}
-                      >
-                        {(post.stylistNickname || "?")
-                          .slice(0, 1)
-                          .toUpperCase()}
-                      </Text>
-                    </View>
+                    {(() => {
+                      const profileUri =
+                        post.stylistProfileImage ||
+                        post.profileImage ||
+                        post.stylistProfilePic;
+
+                      return profileUri ? (
+                        <Image
+                          source={{ uri: profileUri }}
+                          style={styles.stylistProfileImage}
+                        />
+                      ) : (
+                        <View style={styles.avatarFallback}>
+                          <Text style={styles.avatarFallbackText}>
+                            {(post.stylistNickname || "?")
+                              .slice(0, 1)
+                              .toUpperCase()}
+                          </Text>
+                        </View>
+                      );
+                    })()}
 
                     <View style={styles.stylistTextArea}>
                       <Text style={styles.stylistName} numberOfLines={1}>
@@ -432,6 +393,14 @@ export default function FeedScreen() {
                       </Text>
                     </View>
                   </Pressable>
+
+                  {/* 좋아요 수 (우측 하단) */}
+                  <View style={styles.likeArea} pointerEvents="none">
+                    <Ionicons name="heart-outline" size={15} color="#FFFFFF" />
+                    <Text style={styles.likeCount}>
+                      {formatCount(post.likeCount)}
+                    </Text>
+                  </View>
                 </View>
               ))}
             </View>

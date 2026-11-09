@@ -3,16 +3,21 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Modal,
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StatusBar,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
 const API_BASE_URL = "http://192.168.0.5:8080";
@@ -24,6 +29,7 @@ type StyleTypeDto = {
 };
 
 type PlanDto = {
+  stylistPlanPk?: number;
   planPk: number;
   planTier: string;
   planCode: string;
@@ -76,10 +82,12 @@ async function getAccessToken(): Promise<string | null> {
 
 export default function StylistProfileScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ id: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const [stylist, setStylist] = useState<StylistDetailResponse | null>(null);
+  const [introExpanded, setIntroExpanded] = useState(false);
 
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailError, setDetailError] = useState("");
@@ -343,11 +351,99 @@ export default function StylistProfileScreen() {
     loadFollowStatus();
   }, [loadStylistDetail, loadPortfolios, loadFollowStatus]);
 
+  // 스타일리스트 프로필 공유
+  const handleShare = async () => {
+    const nickname = stylist?.nickname || "스타일리스트";
+    const title = `${nickname} 스타일리스트`;
+
+    try {
+      if (Platform.OS === "web") {
+        const url = window.location.href;
+
+        if (typeof navigator !== "undefined" && navigator.share) {
+          await navigator.share({ title, text: title, url });
+        } else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(url);
+          window.alert("프로필 링크가 복사되었어요.");
+        } else {
+          window.alert(url);
+        }
+        return;
+      }
+
+      await Share.share({ message: `${title}의 프로필을 확인해 보세요.` });
+    } catch (error) {
+      // 사용자가 공유를 취소한 경우도 여기로 오므로 조용히 무시
+      console.log("공유 취소 또는 실패:", error);
+    }
+  };
+
   const goToPortfolio = () => {
     router.push({
       pathname: "/stylist/[id]/portfolio",
       params: { id: String(id) },
     });
+  };
+
+  const [inquiryLoading, setInquiryLoading] = useState(false);
+
+  const showMessage = (message: string) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.alert(message);
+    } else {
+      Alert.alert("알림", message);
+    }
+  };
+
+  // 문의하기: 문의 채팅방을 만들거나(이미 있으면 기존 방) 열기
+  const handleInquiry = async () => {
+    if (inquiryLoading || !id) return;
+
+    try {
+      setInquiryLoading(true);
+      const token = await getAccessToken();
+
+      if (!token) {
+        router.replace("/");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/chat/inquiry/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.status === 401) {
+        router.replace("/");
+        return;
+      }
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(
+          result?.message || `문의 채팅방을 열지 못했어요 (${response.status})`,
+        );
+      }
+
+      const roomPk = await response.json();
+
+      router.push({
+        pathname: "/chat/[roomPk]",
+        params: {
+          roomPk: String(roomPk),
+          name: stylist?.nickname || "스타일리스트",
+          stylistPk: String(id),
+          readOnly: "false",
+        },
+      } as any);
+    } catch (error) {
+      console.error("문의하기 오류:", error);
+      showMessage(
+        error instanceof Error ? error.message : "문의 채팅방을 열지 못했어요.",
+      );
+    } finally {
+      setInquiryLoading(false);
+    }
   };
 
   const goToPayment = () => {
@@ -450,40 +546,52 @@ export default function StylistProfileScreen() {
   const visiblePortfolios = portfolios.slice(0, 3);
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: "#FFFFFF" }}
-      edges={["top"]}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#FFFFFF" }} edges={[]}>
       <StatusBar barStyle="dark-content" />
 
-      {/* 상단 헤더 */}
-      <View
+      {/* 뒤로 가기 (대표 이미지 위에 겹쳐서 표시) */}
+      <Pressable
+        onPress={() => router.back()}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="뒤로 가기"
         style={{
-          height: 48,
-          flexDirection: "row",
+          position: "absolute",
+          top: insets.top + 8,
+          left: 12,
+          zIndex: 10,
+          width: 34,
+          height: 34,
+          borderRadius: 17,
           alignItems: "center",
-          paddingHorizontal: 16,
-          borderBottomWidth: 1,
-          borderBottomColor: "#F0EEF4",
+          justifyContent: "center",
+          backgroundColor: "rgba(255,255,255,0.75)",
         }}
       >
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Ionicons name="chevron-back" size={26} color="#292633" />
-        </Pressable>
+        <Ionicons name="chevron-back" size={24} color="#292633" />
+      </Pressable>
 
-        <Text
-          style={{
-            flex: 1,
-            textAlign: "center",
-            marginRight: 26,
-            fontSize: 16,
-            fontWeight: "700",
-            color: "#292633",
-          }}
-        >
-          스타일리스트 프로필
-        </Text>
-      </View>
+      {/* 공유 버튼 (대표 이미지 위, 오른쪽 위) */}
+      <Pressable
+        onPress={handleShare}
+        hitSlop={10}
+        accessibilityRole="button"
+        accessibilityLabel="프로필 공유"
+        style={{
+          position: "absolute",
+          top: insets.top + 8,
+          right: 12,
+          zIndex: 10,
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "rgba(255,255,255,0.75)",
+        }}
+      >
+        <Ionicons name="share-social-outline" size={20} color="#292633" />
+      </Pressable>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -495,8 +603,8 @@ export default function StylistProfileScreen() {
             source={{ uri: stylist.profilePic }}
             style={{
               width: "100%",
-              height: 190,
-              backgroundColor: "#E7E5EC",
+              height: 210 + insets.top,
+              backgroundColor: "#E2E2E2",
             }}
             resizeMode="cover"
           />
@@ -504,8 +612,8 @@ export default function StylistProfileScreen() {
           <View
             style={{
               width: "100%",
-              height: 190,
-              backgroundColor: "#E7E5EC",
+              height: 210 + insets.top,
+              backgroundColor: "#E2E2E2",
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -534,7 +642,7 @@ export default function StylistProfileScreen() {
             >
               <Text
                 style={{
-                  fontSize: 20,
+                  fontSize: 22,
                   fontWeight: "800",
                   color: "#292633",
                 }}
@@ -542,7 +650,7 @@ export default function StylistProfileScreen() {
                 {stylist.nickname}
               </Text>
 
-              <Ionicons name="checkmark-circle" size={17} color="#4A9AC8" />
+              <Ionicons name="checkmark-circle" size={19} color="#3D91A8" />
             </View>
 
             <Pressable
@@ -608,13 +716,13 @@ export default function StylistProfileScreen() {
               <View
                 key={style.typePk}
                 style={{
-                  backgroundColor: "#F1EEFC",
+                  backgroundColor: "#F0F0F0",
                   borderRadius: 14,
-                  paddingHorizontal: 10,
+                  paddingHorizontal: 11,
                   paddingVertical: 5,
                 }}
               >
-                <Text style={{ fontSize: 11, color: "#51458C" }}>
+                <Text style={{ fontSize: 11, color: "#666666" }}>
                   #{style.styleName}
                 </Text>
               </View>
@@ -630,9 +738,9 @@ export default function StylistProfileScreen() {
               marginTop: 10,
             }}
           >
-            <Ionicons name="star" size={15} color="#F5A623" />
+            <Ionicons name="star" size={17} color="#F5A623" />
 
-            <Text style={{ fontSize: 13, fontWeight: "700", color: "#292633" }}>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: "#292633" }}>
               {(stylist.rating ?? 0).toFixed(1)}
             </Text>
           </View>
@@ -684,9 +792,24 @@ export default function StylistProfileScreen() {
             자기소개
           </Text>
 
-          <Text style={{ fontSize: 12, lineHeight: 19, color: "#66636E" }}>
+          <Text
+            style={{ fontSize: 12, lineHeight: 19, color: "#66636E" }}
+            numberOfLines={introExpanded ? undefined : 4}
+          >
             {stylist.introduction || "등록된 자기소개가 없습니다."}
           </Text>
+
+          {(stylist.introduction ?? "").length > 90 && (
+            <Pressable
+              onPress={() => setIntroExpanded((current) => !current)}
+              hitSlop={8}
+              style={{ alignSelf: "flex-end", marginTop: 4 }}
+            >
+              <Text style={{ fontSize: 11, color: "#898692" }}>
+                {introExpanded ? "접기" : "더보기"}
+              </Text>
+            </Pressable>
+          )}
 
           <View
             style={{
@@ -696,16 +819,114 @@ export default function StylistProfileScreen() {
             }}
           />
 
+          {/* 포트폴리오 */}
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "800", color: "#292633" }}>
+              포트폴리오
+            </Text>
+
+            <Pressable onPress={goToPortfolio} hitSlop={8}>
+              <Text style={{ fontSize: 12, color: "#777481" }}>더보기 ›</Text>
+            </Pressable>
+          </View>
+
+          {portfolioLoading ? (
+            <View
+              style={{
+                minHeight: 110,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <ActivityIndicator size="small" color="#8275E8" />
+              <Text style={{ fontSize: 12, color: "#888888" }}>
+                포트폴리오를 불러오는 중입니다.
+              </Text>
+            </View>
+          ) : portfolioError ? (
+            <View
+              style={{
+                minHeight: 110,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <Text style={{ fontSize: 12, color: "#888888" }}>
+                {portfolioError}
+              </Text>
+
+              <Pressable
+                onPress={loadPortfolios}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  backgroundColor: "#F4F2FF",
+                  borderRadius: 8,
+                }}
+              >
+                <Text style={{ fontSize: 12, color: "#8275E8" }}>
+                  다시 시도
+                </Text>
+              </Pressable>
+            </View>
+          ) : visiblePortfolios.length === 0 ? (
+            <View
+              style={{
+                minHeight: 110,
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+              }}
+            >
+              <Ionicons name="images-outline" size={28} color="#AAAAAA" />
+              <Text style={{ fontSize: 12, color: "#888888" }}>
+                등록된 포트폴리오가 없습니다.
+              </Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {visiblePortfolios.map((post) => (
+                <Pressable
+                  key={post.postPk}
+                  style={{
+                    flex: 1,
+                    height: 76,
+                    borderRadius: 4,
+                    overflow: "hidden",
+                    backgroundColor: "#E7E5EC",
+                  }}
+                  onPress={() => router.push(`/post/${post.postPk}` as never)}
+                >
+                  <Image
+                    source={{ uri: post.imageUrl! }}
+                    style={{ width: "100%", height: "100%" }}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              ))}
+            </View>
+          )}
+
           {/* 서비스 선택 */}
           <Text
             style={{
               fontSize: 15,
               fontWeight: "800",
               color: "#292633",
+              marginTop: 22,
               marginBottom: 10,
             }}
           >
-            제공 서비스
+            서비스 등급
           </Text>
 
           {services.length === 0 ? (
@@ -800,104 +1021,6 @@ export default function StylistProfileScreen() {
               );
             })
           )}
-
-          {/* 포트폴리오 */}
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginTop: 8,
-              marginBottom: 10,
-            }}
-          >
-            <Text style={{ fontSize: 15, fontWeight: "800", color: "#292633" }}>
-              포트폴리오
-            </Text>
-
-            <Pressable onPress={goToPortfolio} hitSlop={8}>
-              <Text style={{ fontSize: 12, color: "#777481" }}>더보기 ›</Text>
-            </Pressable>
-          </View>
-
-          {portfolioLoading ? (
-            <View
-              style={{
-                minHeight: 110,
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-              }}
-            >
-              <ActivityIndicator size="small" color="#8275E8" />
-              <Text style={{ fontSize: 12, color: "#888888" }}>
-                포트폴리오를 불러오는 중입니다.
-              </Text>
-            </View>
-          ) : portfolioError ? (
-            <View
-              style={{
-                minHeight: 110,
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-              }}
-            >
-              <Text style={{ fontSize: 12, color: "#888888" }}>
-                {portfolioError}
-              </Text>
-
-              <Pressable
-                onPress={loadPortfolios}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  backgroundColor: "#F4F2FF",
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ fontSize: 12, color: "#8275E8" }}>
-                  다시 시도
-                </Text>
-              </Pressable>
-            </View>
-          ) : visiblePortfolios.length === 0 ? (
-            <View
-              style={{
-                minHeight: 110,
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-              }}
-            >
-              <Ionicons name="images-outline" size={28} color="#AAAAAA" />
-              <Text style={{ fontSize: 12, color: "#888888" }}>
-                등록된 포트폴리오가 없습니다.
-              </Text>
-            </View>
-          ) : (
-            <View style={{ flexDirection: "row", gap: 7 }}>
-              {visiblePortfolios.map((post) => (
-                <Pressable
-                  key={post.postPk}
-                  style={{
-                    flex: 1,
-                    height: 120,
-                    borderRadius: 7,
-                    overflow: "hidden",
-                    backgroundColor: "#E7E5EC",
-                  }}
-                  onPress={() => router.push(`/post/${post.postPk}` as never)}
-                >
-                  <Image
-                    source={{ uri: post.imageUrl! }}
-                    style={{ width: "100%", height: "100%" }}
-                    resizeMode="cover"
-                  />
-                </Pressable>
-              ))}
-            </View>
-          )}
         </View>
       </ScrollView>
 
@@ -914,18 +1037,20 @@ export default function StylistProfileScreen() {
         }}
       >
         <Pressable
-          onPress={() => {}}
+          onPress={handleInquiry}
+          disabled={inquiryLoading}
           style={{
             flex: 1,
-            height: 46,
+            height: 44,
             borderRadius: 8,
-            backgroundColor: "#F1EEFC",
+            backgroundColor: "#F2F2F2",
             alignItems: "center",
             justifyContent: "center",
+            opacity: inquiryLoading ? 0.6 : 1,
           }}
         >
-          <Text style={{ fontSize: 13, fontWeight: "700", color: "#51458C" }}>
-            문의하기
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "#333333" }}>
+            {inquiryLoading ? "여는 중..." : "문의하기"}
           </Text>
         </Pressable>
 
@@ -933,8 +1058,8 @@ export default function StylistProfileScreen() {
           onPress={goToPayment}
           disabled={!selectedServiceData}
           style={{
-            flex: 1.6,
-            height: 46,
+            flex: 1.5,
+            height: 44,
             borderRadius: 8,
             backgroundColor: selectedServiceData ? "#51458C" : "#BDB9CA",
             alignItems: "center",

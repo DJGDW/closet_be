@@ -1,48 +1,50 @@
-
 import { StyleSheet } from "react-native";
+
+import { palette, radius } from "./theme";
 
 export const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: palette.background,
   },
 
   screen: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: palette.background,
   },
 
   header: {
-    height: 52,
+    height: 60,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingLeft: 20,
+    paddingRight: 12,
   },
 
   headerSide: {
-    width: 36,
+    width: 40,
   },
 
   headerTitle: {
     flex: 1,
-    textAlign: "center",
-    fontFamily: "Arial",
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#222222",
+    textAlign: "left",
+    fontSize: 24,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    color: palette.text,
   },
 
   settingsButton: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
     alignItems: "center",
     justifyContent: "center",
   },
 
   settingsIcon: {
     fontSize: 19,
-    color: "#555555",
+    color: palette.textSub,
   },
 
   scroll: {
@@ -51,131 +53,211 @@ export const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 24,
+    paddingTop: 12,
+    paddingBottom: 28,
   },
 
   profileSection: {
-    minHeight: 92,
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 22,
   },
 
   avatar: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: "#EEEEEE",
-    borderWidth: 1,
-    borderColor: "#D9D9D9",
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: palette.primarySoft,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    shadowColor: palette.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
     alignItems: "center",
     justifyContent: "center",
-    overflow: "hidden",
     marginRight: 16,
   },
 
-  avatarHead: {
-    position: "absolute",
-    top: 20,
-    width: 23,
-    height: 23,
-    borderRadius: 12,
-    backgroundColor: "#BDBDBD",
-  },
-
-  avatarBody: {
-    position: "absolute",
-    bottom: -12,
-    width: 52,
-    height: 43,
-    borderTopLeftRadius: 27,
-    borderTopRightRadius: 27,
-    backgroundColor: "#BDBDBD",
-  },
+  avatarHead: {},
+  avatarBody: {},
 
   profileInfo: {
     flex: 1,
     minWidth: 0,
     justifyContent: "center",
-    paddingRight: 8,
+    paddingRight: 6,
   },
 
   profileName: {
-    fontFamily: "Arial",
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#222222",
-    marginBottom: 6,
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.3,
+    color: palette.text,
+    marginBottom: 3,
   },
 
   profileId: {
-    fontFamily: "Arial",
-    fontSize: 12,
-    color: "#888888",
+    fontSize: 13,
+    color: palette.textMute,
+  },
+
+  roleBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surface,
+  },
+
+  roleBadgeStylist: {
+    backgroundColor: palette.primary,
+  },
+
+  roleBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: palette.textSub,
+  },
+
+  roleBadgeTextStylist: {
+    color: "#FFFFFF",
+  },
+
+  statsCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderRadius: radius.lg,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: palette.line,
+    shadowColor: "#1A1A1F",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+    marginBottom: 14,
+  },
+
+  statDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 28,
+    backgroundColor: "#D8D8E0",
   },
 
   followStat: {
-    width: 56,
+    width: 52,
     alignItems: "center",
     justifyContent: "center",
   },
 
   statNumber: {
-    fontFamily: "Arial",
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#222222",
-    marginBottom: 6,
+    fontSize: 17,
+    fontWeight: "800",
+    color: palette.text,
+    marginBottom: 3,
   },
 
   statLabel: {
-    fontFamily: "Arial",
-    fontSize: 10,
-    color: "#777777",
+    fontSize: 11,
+    color: palette.textSub,
   },
 
   stylistButton: {
-    height: 46,
-    borderRadius: 9,
-    backgroundColor: "#51478F",
+    minHeight: 72,
+    borderRadius: radius.lg,
+    backgroundColor: palette.primary,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    overflow: "hidden",
+    marginBottom: 24,
   },
 
   stylistButtonText: {
-    fontFamily: "Arial",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
   },
 
   stylistEditButton: {
-  backgroundColor: "#ffffff",
-  borderColor : "#222222",
-  borderWidth: 1,
-},
+    backgroundColor: palette.background,
+    borderColor: palette.line,
+    borderWidth: 1,
+  },
 
-stylistEditButtonText: {
-  color: "#222222",
-},
+  stylistEditButtonText: {
+    color: palette.text,
+  },
+
+  stylistGradient: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+
+  stylistIconTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  stylistIconTileEdit: {
+    backgroundColor: palette.primarySoft,
+  },
+
+  stylistTextArea: {
+    flex: 1,
+  },
+
+  stylistSubText: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+    marginTop: 2,
+  },
+
+  stylistEditSubText: {
+    color: palette.textSub,
+  },
+
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: palette.textSub,
+    marginBottom: 10,
+    marginLeft: 4,
+  },
 
   menuList: {
-    backgroundColor: "#F7F7F7",
-    borderRadius: 10,
+    backgroundColor: palette.background,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: palette.line,
     overflow: "hidden",
   },
 
   menuRow: {
-    minHeight: 44,
-    paddingLeft: 16,
+    minHeight: 62,
+    paddingLeft: 14,
     paddingRight: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#E6E6E6",
+    borderBottomColor: palette.line,
   },
 
   menuLabelArea: {
@@ -183,36 +265,64 @@ stylistEditButtonText: {
     alignItems: "center",
   },
 
+  menuIconTile: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: palette.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  tileLike: {
+    backgroundColor: "#FFEFF2",
+  },
+
+  tileBuy: {
+    backgroundColor: palette.primarySoft,
+  },
+
+  tileSale: {
+    backgroundColor: "#E8F6F0",
+  },
+
   menuIcon: {
     width: 18,
-    fontFamily: "Arial",
     fontSize: 15,
-    color: "#444444",
+    color: palette.textSub,
     textAlign: "center",
     marginRight: 5,
   },
 
   menuLabel: {
-    fontFamily: "Arial",
-    fontSize: 13,
-    color: "#333333",
+    fontSize: 15,
+    fontWeight: "500",
+    color: palette.text,
   },
 
   menuRight: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 6,
   },
 
   menuCount: {
-    fontFamily: "Arial",
-    fontSize: 11,
-    color: "#888888",
+    minWidth: 24,
+    textAlign: "center",
+    overflow: "hidden",
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radius.pill,
+    backgroundColor: palette.surface,
+    fontSize: 12,
+    fontWeight: "700",
+    color: palette.textSub,
   },
 
   chevron: {
-    fontFamily: "Arial",
     fontSize: 17,
-    color: "#888888",
+    color: palette.textMute,
     marginLeft: 6,
   },
 });

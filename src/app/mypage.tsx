@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState, useCallback } from "react";
 import { router } from "expo-router";
 import { Platform } from "react-native";
@@ -13,6 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { styles } from "../styles/mypage.styles";
+import { palette } from "../styles/theme";
 
 const API_BASE_URL = "http://192.168.0.5:8080";
 
@@ -57,8 +60,8 @@ export default function MyPageScreen() {
   const [likedCount, setLikedCount] = useState(0);
   const [purchaseCount, setPurchaseCount] = useState(0);
 
-  // 판매내역 API가 아직 없어 null로 표시
-  const [saleCount] = useState<number | null>(null);
+  // 판매내역 개수 (스타일리스트일 때만 조회)
+  const [saleCount, setSaleCount] = useState<number | null>(null);
 
   const getAccessToken = async () => {
     if (Platform.OS === "web") {
@@ -121,6 +124,33 @@ export default function MyPageScreen() {
 
     checkStylist();
   }, []);
+
+  // 스타일리스트라면 판매내역(결제 완료 건수) 조회
+  useEffect(() => {
+    if (!isStylist) return;
+
+    const fetchSaleCount = async () => {
+      try {
+        const accessToken = await getAccessToken();
+        if (!accessToken) return;
+
+        const response = await fetch(`${API_BASE_URL}/order/sales`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const sales = Array.isArray(data) ? data : [];
+        setSaleCount(
+          sales.filter((sale: any) => Number(sale.purchaseStatus) === 1).length,
+        );
+      } catch (error) {
+        console.error("판매내역 개수 조회 오류:", error);
+      }
+    };
+
+    fetchSaleCount();
+  }, [isStylist]);
 
   // 좋아요 게시물 및 구매내역 개수 조회
   const fetchMenuCounts = useCallback(async () => {
@@ -302,8 +332,6 @@ export default function MyPageScreen() {
 
       <View style={styles.screen}>
         <View style={styles.header}>
-          <View style={styles.headerSide} />
-
           <Text style={styles.headerTitle}>마이페이지</Text>
 
           <Pressable
@@ -312,7 +340,7 @@ export default function MyPageScreen() {
             accessibilityRole="button"
             accessibilityLabel="설정"
           >
-            <Text style={styles.settingsIcon}>⚙</Text>
+            <Ionicons name="settings-outline" size={22} color={palette.text} />
           </Pressable>
         </View>
 
@@ -323,11 +351,33 @@ export default function MyPageScreen() {
         >
           <View style={styles.profileSection}>
             <View style={styles.avatar}>
-              <View style={styles.avatarHead} />
-              <View style={styles.avatarBody} />
+              <Ionicons name="person" size={38} color={palette.primaryLine} />
             </View>
 
             <View style={styles.profileInfo}>
+              {!checkingStylist && (
+                <View
+                  style={[
+                    styles.roleBadge,
+                    isStylist && styles.roleBadgeStylist,
+                  ]}
+                >
+                  <Ionicons
+                    name={isStylist ? "sparkles" : "person-outline"}
+                    size={11}
+                    color={isStylist ? "#FFFFFF" : palette.textSub}
+                  />
+                  <Text
+                    style={[
+                      styles.roleBadgeText,
+                      isStylist && styles.roleBadgeTextStylist,
+                    ]}
+                  >
+                    {isStylist ? "스타일리스트" : "일반 회원"}
+                  </Text>
+                </View>
+              )}
+
               <Text style={styles.profileName} numberOfLines={1}>
                 {nickname}
               </Text>
@@ -369,19 +419,62 @@ export default function MyPageScreen() {
               }
             }}
           >
-            <Text
+            {!isStylist && (
+              <LinearGradient
+                colors={["#6A5BB5", "#51458C"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.stylistGradient}
+                pointerEvents="none"
+              />
+            )}
+
+            <View
               style={[
-                styles.stylistButtonText,
-                isStylist && styles.stylistEditButtonText,
+                styles.stylistIconTile,
+                isStylist && styles.stylistIconTileEdit,
               ]}
             >
-              {checkingStylist
-                ? "확인 중..."
-                : isStylist
-                  ? "스타일리스트 프로필 수정"
-                  : "스타일리스트 등록하기"}
-            </Text>
+              <Ionicons
+                name={isStylist ? "create-outline" : "sparkles"}
+                size={20}
+                color={isStylist ? palette.primary : "#FFFFFF"}
+              />
+            </View>
+
+            <View style={styles.stylistTextArea}>
+              <Text
+                style={[
+                  styles.stylistButtonText,
+                  isStylist && styles.stylistEditButtonText,
+                ]}
+              >
+                {checkingStylist
+                  ? "확인 중..."
+                  : isStylist
+                    ? "스타일리스트 프로필 수정"
+                    : "스타일리스트 등록하기"}
+              </Text>
+              <Text
+                style={[
+                  styles.stylistSubText,
+                  isStylist && styles.stylistEditSubText,
+                ]}
+              >
+                {isStylist
+                  ? "소개, 지역, 서비스 가격을 관리해요"
+                  : "나만의 스타일링 서비스를 시작해 보세요"}
+              </Text>
+            </View>
+
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={isStylist ? palette.textMute : "rgba(255,255,255,0.8)"}
+            />
           </Pressable>
+
+          <Text style={styles.sectionLabel}>나의 활동</Text>
 
           <View style={styles.menuList}>
             {/* 좋아요 게시물 */}
@@ -390,29 +483,45 @@ export default function MyPageScreen() {
               onPress={() => router.push("/liked-posts")}
             >
               <View style={styles.menuLabelArea}>
-                <Text style={styles.menuIcon}>♡</Text>
+                <View style={[styles.menuIconTile, styles.tileLike]}>
+                  <Ionicons name="heart" size={18} color="#E5566D" />
+                </View>
                 <Text style={styles.menuLabel}>좋아요 게시물</Text>
               </View>
 
               <View style={styles.menuRight}>
                 <Text style={styles.menuCount}>{likedCount}</Text>
-                <Text style={styles.chevron}>›</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={palette.textMute}
+                />
               </View>
             </Pressable>
 
             {/* 구매내역 */}
             <Pressable
               style={styles.menuRow}
-              onPress={() => showNotReady("구매내역")}
+              onPress={() => router.push("/purchase-history" as any)}
             >
               <View style={styles.menuLabelArea}>
-                <Text style={styles.menuIcon}>□</Text>
+                <View style={[styles.menuIconTile, styles.tileBuy]}>
+                  <Ionicons
+                    name="bag-handle"
+                    size={18}
+                    color={palette.primary}
+                  />
+                </View>
                 <Text style={styles.menuLabel}>구매내역</Text>
               </View>
 
               <View style={styles.menuRight}>
                 <Text style={styles.menuCount}>{purchaseCount}</Text>
-                <Text style={styles.chevron}>›</Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={palette.textMute}
+                />
               </View>
             </Pressable>
 
@@ -420,16 +529,22 @@ export default function MyPageScreen() {
             {!checkingStylist && isStylist && (
               <Pressable
                 style={styles.menuRow}
-                onPress={() => showNotReady("판매내역")}
+                onPress={() => router.push("/sales-history" as any)}
               >
                 <View style={styles.menuLabelArea}>
-                  <Text style={styles.menuIcon}>□</Text>
+                  <View style={[styles.menuIconTile, styles.tileSale]}>
+                    <Ionicons name="stats-chart" size={18} color="#2E9E75" />
+                  </View>
                   <Text style={styles.menuLabel}>판매내역</Text>
                 </View>
 
                 <View style={styles.menuRight}>
                   <Text style={styles.menuCount}>{saleCount ?? "—"}</Text>
-                  <Text style={styles.chevron}>›</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={palette.textMute}
+                  />
                 </View>
               </Pressable>
             )}

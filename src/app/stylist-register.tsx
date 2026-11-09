@@ -58,28 +58,38 @@ const STYLE_TYPES = [
 const PLANS = [
   {
     id: 1,
-    name: "브론즈",
-    englishName: "BRONZE",
-    description: "기본적인 스타일 상담",
-    features: ["채팅 상담", "최대 1회 스타일 제안", "간단한 스타일 피드백"],
+    name: "베이직",
+    tagline: "기본 상담 중심",
+    description: "가볍게 시작하는 스타일 상담",
+    features: ["채팅 상담", "코디 제안 1세트", "간단한 스타일 피드백"],
   },
   {
     id: 2,
-    name: "실버",
-    englishName: "SILVER",
+    name: "스탠다드",
+    tagline: "상담과 추천을 함께",
     description: "더 자세한 스타일 상담",
-    features: ["채팅 + 영상 통화", "최대 2~3회 스타일 제안", "추천 상품 및 코디 제공"],
+    features: [
+      "채팅 + 영상 통화 (30분)",
+      "코디 제안 2~3세트",
+      "추천 상품 링크 제공",
+    ],
   },
   {
     id: 3,
-    name: "골드",
-    englishName: "GOLD",
+    name: "프리미엄",
+    tagline: "집중 케어",
     description: "맞춤형 스타일링 솔루션",
-    features: ["맞춤 스타일 상담", "퍼스널 스타일링 컨설팅", "코디 제안 및 쇼핑 가이드"],
+    features: [
+      "동행 쇼핑 (시간 협의)",
+      "퍼스널 스타일 컨설팅",
+      "맞춤 코디 제안 및 쇼핑 가이드",
+    ],
   },
 ];
 
 const CUSTOMER_GROUPS = ["10대", "20대", "30대", "40대 이상"];
+
+const MAX_STYLE_SELECTION = 5;
 
 type PlanPrice = {
   selected: boolean;
@@ -109,11 +119,20 @@ export default function StylistRegisterScreen() {
   }
 
   function toggleStyle(styleId: number) {
-    setStyleTypePks((current) =>
-      current.includes(styleId)
-        ? current.filter((id) => id !== styleId)
-        : [...current, styleId],
-    );
+    if (styleTypePks.includes(styleId)) {
+      setStyleTypePks(styleTypePks.filter((id) => id !== styleId));
+      return;
+    }
+
+    if (styleTypePks.length >= MAX_STYLE_SELECTION) {
+      showMessage(
+        "전문 스타일",
+        `전문 스타일은 최대 ${MAX_STYLE_SELECTION}개까지 선택할 수 있어요.`,
+      );
+      return;
+    }
+
+    setStyleTypePks([...styleTypePks, styleId]);
   }
 
   function togglePlan(planId: number) {
@@ -127,7 +146,7 @@ export default function StylistRegisterScreen() {
   }
 
   function updatePlanPrice(planId: number, price: string) {
-    const digitsOnly = price.replace(/[^0-9]/g, "");
+    const digitsOnly = price.replace(/[^0-9]/g, "").slice(0, 9);
     setPlanPrices((current) => ({
       ...current,
       [planId]: { ...current[planId], price: digitsOnly },
@@ -288,13 +307,12 @@ export default function StylistRegisterScreen() {
                 style={[
                   styles.progressCircle,
                   step === item && styles.progressCircleActive,
-                  step > item && styles.progressCircleComplete,
                 ]}
               >
                 <Text
                   style={[
                     styles.progressNumber,
-                    (step === item || step > item) && styles.progressNumberActive,
+                    step === item && styles.progressNumberActive,
                   ]}
                 >
                   {item}
@@ -318,7 +336,7 @@ export default function StylistRegisterScreen() {
             <>
               <Text style={styles.sectionTitle}>기본 정보 입력</Text>
               <Text style={styles.helperText}>
-                스타일리스트로 사용할 기본 정보를 입력해 주세요.
+                스타일리스트로 사용할 정보를 입력해주세요.
               </Text>
 
               <Text style={styles.fieldLabel}>프로필 이미지</Text>
@@ -334,18 +352,21 @@ export default function StylistRegisterScreen() {
                 <Text style={styles.imagePlus}>＋</Text>
               </Pressable>
 
-              <Text style={styles.fieldLabel}>소개글</Text>
+              <Text style={styles.fieldLabel}>소개글 *</Text>
               <TextInput
-                style={[styles.textInput, styles.multilineInput]}
+                style={[
+                  styles.textInput,
+                  styles.multilineInput,
+                  styles.introInput,
+                ]}
                 value={introduction}
                 onChangeText={setIntroduction}
-                placeholder="자신을 소개해 주세요."
+                placeholder="자신을 소개해주세요."
                 placeholderTextColor="#AAAAAA"
                 multiline
                 maxLength={255}
                 textAlignVertical="top"
               />
-              <Text style={styles.characterCount}>{introduction.length}/255</Text>
 
               <Text style={styles.fieldLabel}>주요 고객층 (선택)</Text>
               <View style={styles.customerRow}>
@@ -354,7 +375,11 @@ export default function StylistRegisterScreen() {
                   return (
                     <Pressable
                       key={group}
-                      style={[styles.customerChip, selected && styles.chipSelected]}
+                      style={[
+                        styles.customerChip,
+                        group === "40대 이상" && styles.customerChipWide,
+                        selected && styles.chipSelected,
+                      ]}
                       onPress={() => toggleCustomerGroup(group)}
                     >
                       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
@@ -393,10 +418,15 @@ export default function StylistRegisterScreen() {
             <>
               <Text style={styles.sectionTitle}>전문 분야 선택</Text>
               <Text style={styles.helperText}>
-                주로 다루는 스타일을 선택해 주세요. 여러 개 선택할 수 있어요.
+                주로 다루는 스타일과 전문 분야를 선택해주세요.
               </Text>
 
-              <Text style={styles.fieldLabel}>전문 스타일 * (복수 선택)</Text>
+              <View style={styles.fieldHeaderRow}>
+                <Text style={styles.fieldLabelInline}>전문 스타일 *</Text>
+                <Text style={styles.fieldHint}>
+                  최대 {MAX_STYLE_SELECTION}개 선택
+                </Text>
+              </View>
               <View style={styles.styleGrid}>
                 {STYLE_TYPES.map((style) => {
                   const selected = styleTypePks.includes(style.id);
@@ -423,19 +453,16 @@ export default function StylistRegisterScreen() {
                   : "선택한 스타일이 여기에 표시됩니다."}
               </Text>
 
-              <Text style={styles.fieldLabel}>전문 분야 소개 (선택)</Text>
+              <Text style={styles.fieldLabel}>전문 분야 소개</Text>
               <TextInput
                 style={[styles.textInput, styles.multilineInput]}
                 value={specialtyIntroduction}
                 onChangeText={setSpecialtyIntroduction}
-                placeholder="전문 분야와 스타일링 방향을 소개해 주세요."
+                placeholder="자신 있는 스타일이나 코디 특징을 작성해주세요."
                 placeholderTextColor="#AAAAAA"
                 multiline
                 textAlignVertical="top"
               />
-              <Text style={styles.helperText}>
-                이 소개글은 현재 등록 API에서 저장되지 않습니다.
-              </Text>
             </>
           )}
 
@@ -443,62 +470,92 @@ export default function StylistRegisterScreen() {
             <>
               <Text style={styles.sectionTitle}>서비스 플랜 설정</Text>
               <Text style={styles.helperText}>
-                제공할 서비스 플랜을 선택하고 각 플랜의 가격을 입력해 주세요.
+                플랜별 제공 내용과 가격을 설정해 주세요.
               </Text>
 
               {PLANS.map((plan) => {
                 const planState = planPrices[plan.id];
+                const formattedPrice = planState.price
+                  ? Number(planState.price).toLocaleString("ko-KR")
+                  : "";
                 return (
                   <View
                     key={plan.id}
                     style={[styles.planCard, planState.selected && styles.planCardSelected]}
                   >
-                    <Pressable
-                      style={styles.planHeader}
-                      onPress={() => togglePlan(plan.id)}
-                    >
-                      <View style={styles.planHeadingLeft}>
-                        <View style={[styles.radio, planState.selected && styles.radioSelected]}>
-                          {planState.selected && <View style={styles.radioDot} />}
+                    <View style={styles.planHeader}>
+                      <Pressable
+                        style={styles.planHeadingPress}
+                        onPress={() => togglePlan(plan.id)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: planState.selected }}
+                      >
+                        <View
+                          style={[
+                            styles.radio,
+                            planState.selected && styles.radioSelected,
+                          ]}
+                        >
+                          {planState.selected && (
+                            <View style={styles.radioDot} />
+                          )}
                         </View>
                         <View style={styles.planNameArea}>
                           <Text style={styles.planName}>{plan.name}</Text>
                           <Text style={styles.planDescription}>{plan.description}</Text>
                         </View>
-                      </View>
-                      <Text style={styles.planCode}>{plan.englishName}</Text>
-                    </Pressable>
+                      </Pressable>
 
-                    {planState.selected && (
-                      <View style={styles.priceRow}>
-                        <Text style={styles.priceLabel}>서비스 가격</Text>
-                        <TextInput
-                          style={styles.priceInput}
-                          value={planState.price}
-                          onChangeText={(value) => updatePlanPrice(plan.id, value)}
-                          placeholder="가격 입력"
-                          placeholderTextColor="#AAAAAA"
-                          keyboardType="number-pad"
-                          maxLength={9}
-                        />
-                        <Text style={styles.wonText}>원</Text>
-                      </View>
-                    )}
+                      {planState.selected ? (
+                        <View style={styles.priceChip}>
+                          <TextInput
+                            style={styles.priceInput}
+                            value={formattedPrice}
+                            onChangeText={(value) =>
+                              updatePlanPrice(plan.id, value)
+                            }
+                            placeholder="가격 입력"
+                            placeholderTextColor="#9A9A9A"
+                            keyboardType="number-pad"
+                          />
+                          {formattedPrice !== "" && (
+                            <Text style={styles.wonText}>원</Text>
+                          )}
+                        </View>
+                      ) : (
+                        <Pressable
+                          style={styles.priceChip}
+                          onPress={() => togglePlan(plan.id)}
+                        >
+                          <Text
+                            style={[
+                              styles.priceText,
+                              formattedPrice === "" && styles.priceTextEmpty,
+                            ]}
+                          >
+                            {formattedPrice
+                              ? `${formattedPrice}원`
+                              : "가격 입력"}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+
+                    <View style={styles.planDivider} />
 
                     <View style={styles.featureList}>
                       {plan.features.map((feature) => (
-                        <Text key={feature} style={styles.featureText}>
-                          ✓  {feature}
-                        </Text>
+                        <View key={feature} style={styles.featureRow}>
+                          <Text style={styles.featureCheck}>✓</Text>
+                          <Text style={styles.featureText}>{feature}</Text>
+                        </View>
                       ))}
                     </View>
+
+                    <Text style={styles.planTagline}>{plan.tagline}</Text>
                   </View>
                 );
               })}
-
-              <Text style={styles.helperText}>
-                선택한 플랜은 최소 1개 이상이어야 하며, 가격은 1원 이상 입력해야 해요.
-              </Text>
             </>
           )}
         </ScrollView>

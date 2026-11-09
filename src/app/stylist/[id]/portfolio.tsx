@@ -1,4 +1,3 @@
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -11,11 +10,17 @@ import {
   Text,
   View,
   StyleSheet,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
 const API_BASE_URL = "http://192.168.0.5:8080";
+
+// 모자이크 배치 값 (디자인 402px 프레임 기준)
+const MAX_WIDTH = 402;
+const GRID_GAP = 8;
+const GRID_SIDE = 10;
 
 type PortfolioPost = {
   postPk: number;
@@ -47,6 +52,7 @@ async function getAccessToken(): Promise<string | null> {
 
 export default function PortfolioScreen() {
   const router = useRouter();
+  const { width: windowWidth } = useWindowDimensions();
 
   const params = useLocalSearchParams<{ id: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -54,6 +60,14 @@ export default function PortfolioScreen() {
   const [posts, setPosts] = useState<PortfolioPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // 타일 크기 계산: 3열 기준 한 칸(unit)을 잡고 큰 타일은 2칸 + 간격
+  const contentWidth = Math.min(windowWidth, MAX_WIDTH) - GRID_SIDE * 2;
+  const unit = (contentWidth - GRID_GAP * 2) / 3;
+  const smallHeight = Math.round(unit * 1.03);
+  const bigWidth = unit * 2 + GRID_GAP;
+  const bigHeight = smallHeight * 2 + GRID_GAP;
+  const rowHeight = Math.round(unit * 1.17);
 
   // 해당 스타일리스트의 포트폴리오 조회
   const fetchPortfolios = useCallback(async () => {
@@ -132,6 +146,53 @@ export default function PortfolioScreen() {
     router.push(`/post/${post.postPk}` as never);
   };
 
+  const renderTile = (post: PortfolioPost, width: number, height: number) => (
+    <Pressable
+      key={post.postPk}
+      style={[styles.tile, { width, height }]}
+      onPress={() => handlePostPress(post)}
+      accessibilityRole="button"
+      accessibilityLabel="포트폴리오 게시물 보기"
+    >
+      <Image
+        source={{ uri: post.imageUrl! }}
+        style={styles.tileImage}
+        resizeMode="cover"
+      />
+    </Pressable>
+  );
+
+  // 3개씩 한 묶음: 짝수 묶음은 [큰 타일 + 작은 타일 2개], 홀수 묶음은 [작은 타일 3개]
+  const renderGroups = () => {
+    const groups = [];
+
+    for (let start = 0; start < posts.length; start += 3) {
+      const chunk = posts.slice(start, start + 3);
+      const groupIndex = start / 3;
+
+      if (groupIndex % 2 === 0) {
+        groups.push(
+          <View key={`group-${start}`} style={styles.featureGroup}>
+            {renderTile(chunk[0], bigWidth, bigHeight)}
+
+            <View style={styles.stackColumn}>
+              {chunk[1] ? renderTile(chunk[1], unit, smallHeight) : null}
+              {chunk[2] ? renderTile(chunk[2], unit, smallHeight) : null}
+            </View>
+          </View>,
+        );
+      } else {
+        groups.push(
+          <View key={`group-${start}`} style={styles.rowGroup}>
+            {chunk.map((post) => renderTile(post, unit, rowHeight))}
+          </View>,
+        );
+      }
+    }
+
+    return groups;
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       {/* 헤더 */}
@@ -171,46 +232,11 @@ export default function PortfolioScreen() {
           contentContainerStyle={styles.portfolioContent}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.portfolioGrid}>
-            {posts.map((post) => (
-              <Pressable
-                key={post.postPk}
-                style={styles.postCard}
-                onPress={() => handlePostPress(post)}
-              >
-                <Image
-                  source={{ uri: post.imageUrl! }}
-                  style={styles.postImage}
-                  resizeMode="cover"
-                />
+          <View style={styles.portfolioGrid}>{renderGroups()}</View>
 
-                <LinearGradient
-                  colors={[
-                    "rgba(0,0,0,0)",
-                    "rgba(0,0,0,0.2)",
-                    "rgba(0,0,0,0.9)",
-                  ]}
-                  locations={[0, 0.4, 1]}
-                  style={styles.imageGradient}
-                  pointerEvents="none"
-                />
-
-                {post.stylistNickname ? (
-                  <View style={styles.stylistInfo}>
-                    <View style={styles.profileCircle}>
-                      <Text style={styles.profileInitial}>
-                        {post.stylistNickname.slice(0, 1).toUpperCase()}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.stylistName} numberOfLines={1}>
-                      {post.stylistNickname}
-                    </Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
+          <Text style={styles.footerHint}>
+            스크롤하여 더 많은 포트폴리오 보기
+          </Text>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -226,7 +252,7 @@ const styles = StyleSheet.create({
 
   header: {
     width: "100%",
-    maxWidth: 402,
+    maxWidth: MAX_WIDTH,
     height: 52,
     paddingHorizontal: 18,
     flexDirection: "row",
@@ -237,7 +263,7 @@ const styles = StyleSheet.create({
   },
 
   headerTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
     color: "#222222",
   },
@@ -249,78 +275,52 @@ const styles = StyleSheet.create({
   portfolioScroll: {
     flex: 1,
     width: "100%",
-    maxWidth: 402,
+    maxWidth: MAX_WIDTH,
     backgroundColor: "#FFFFFF",
   },
 
   portfolioContent: {
-    paddingHorizontal: 7,
-    paddingTop: 1,
-    paddingBottom: 14,
+    paddingHorizontal: GRID_SIDE,
+    paddingTop: 10,
+    paddingBottom: 18,
   },
 
   portfolioGrid: {
+    gap: GRID_GAP,
+  },
+
+  featureGroup: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "flex-start",
-    columnGap: 3,
-    rowGap: 3,
+    gap: GRID_GAP,
   },
 
-  postCard: {
-    width: "48.8%",
-    marginBottom: 1,
-    position: "relative",
-    overflow: "hidden",
-    backgroundColor: "#F2F2F2",
+  stackColumn: {
+    gap: GRID_GAP,
   },
 
-  postImage: {
-    width: "100%",
-    aspectRatio: 0.76,
-    backgroundColor: "#F2F2F2",
-  },
-
-  imageGradient: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: "45%",
-  },
-
-  stylistInfo: {
-    position: "absolute",
-    left: 8,
-    right: 6,
-    bottom: 9,
+  rowGroup: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+    gap: GRID_GAP,
   },
 
-  profileCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 17,
+  tile: {
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.9)",
-    backgroundColor: "rgba(255,255,255,0.18)",
-    alignItems: "center",
-    justifyContent: "center",
+    borderColor: "#DCDCDC",
+    backgroundColor: "#E9E9E9",
+    overflow: "hidden",
   },
 
-  profileInitial: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "700",
+  tileImage: {
+    width: "100%",
+    height: "100%",
   },
 
-  stylistName: {
-    flex: 1,
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "700",
+  footerHint: {
+    marginTop: 16,
+    fontSize: 10,
+    color: "#AAAAAA",
+    textAlign: "center",
   },
 
   stateContainer: {

@@ -1,28 +1,12 @@
-
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter, usePathname } from "expo-router";
-import {
-  Pressable,
-  View,
-  Text,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useCallback, useEffect, useState } from "react";
-import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
-
-import HomeActiveIcon from "../../assets/icons/nav-home-active.svg";
-import HomeIcon from "../../assets/icons/nav-home.svg";
-
-import SearchActiveIcon from "../../assets/icons/nav-search-active.svg";
-import SearchIcon from "../../assets/icons/nav-search.svg";
-
-import ChatActiveIcon from "../../assets/icons/nav-chat-active.svg";
-import ChatIcon from "../../assets/icons/nav-chat.svg";
-
-import MyPageActiveIcon from "../../assets/icons/nav-mypage-active.svg";
-import MyPageIcon from "../../assets/icons/nav-mypage.svg";
+import { useCallback, useEffect, useState } from "react";
+import { Platform, Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { styles } from "../styles/feed.styles";
+import { palette } from "../styles/theme";
 
 const API_BASE_URL = "http://192.168.0.5:8080";
 
@@ -39,24 +23,16 @@ const TAB_LABELS: Record<TabKey, string> = {
   chat: "채팅",
   mypage: "마이페이지",
 };
+type IconName = keyof typeof Ionicons.glyphMap;
 
-const TAB_ICONS = {
-  home: {
-    inactive: HomeIcon,
-    active: HomeActiveIcon,
-  },
-  search: {
-    inactive: SearchIcon,
-    active: SearchActiveIcon,
-  },
+const TAB_ICONS: Record<TabKey, { inactive: IconName; active: IconName }> = {
+  home: { inactive: "home-outline", active: "home" },
+  search: { inactive: "search-outline", active: "search" },
   chat: {
-    inactive: ChatIcon,
-    active: ChatActiveIcon,
+    inactive: "chatbubble-ellipses-outline",
+    active: "chatbubble-ellipses",
   },
-  mypage: {
-    inactive: MyPageIcon,
-    active: MyPageActiveIcon,
-  },
+  mypage: { inactive: "person-outline", active: "person" },
 };
 
 async function getAccessToken() {
@@ -79,51 +55,39 @@ export default function BottomNavigation() {
     try {
       const token = await getAccessToken();
 
-console.log("[채팅 배지] 토큰 존재:", !!token);
+      if (!token) {
+        setUnreadCount(0);
+        return;
+      }
 
-if (!token) {
-  setUnreadCount(0);
-  return;
-}
+      const response = await fetch(`${API_BASE_URL}/chat/rooms`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-const response = await fetch(`${API_BASE_URL}/chat/rooms`, {
-  method: "GET",
-  headers: {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  },
-});
+      if (!response.ok) {
+        return;
+      }
 
-console.log("[채팅 배지] HTTP 상태:", response.status);
+      const data: ChatRoom[] = await response.json();
 
-const responseText = await response.text();
+      const totalUnread = Array.isArray(data)
+        ? data.reduce(
+            (total, room) => total + (Number(room.unreadCount) || 0),
+            0,
+          )
+        : 0;
 
-console.log("[채팅 배지] 서버 응답:", responseText);
-
-if (!response.ok) {
-  return;
-}
-
-const data = JSON.parse(responseText);
-
-const totalUnread = Array.isArray(data)
-  ? data.reduce(
-      (total: number, room: any) =>
-        total + (Number(room.unreadCount) || 0),
-      0
-    )
-  : 0;
-
-console.log("[채팅 배지] 최종 읽지 않은 메시지:", totalUnread);
-
-setUnreadCount(totalUnread);
+      setUnreadCount(totalUnread);
     } catch (error) {
       console.error("읽지 않은 채팅 수 조회 오류:", error);
     }
   }, []);
 
-  // 최초 조회 + 10초마다 갱신
-  // 화면 경로가 바뀌면 즉시 다시 조회
+  // 최초 조회 + 10초마다 갱신, 화면 경로가 바뀌면 즉시 다시 조회
   useEffect(() => {
     fetchUnreadCount();
 
@@ -175,20 +139,14 @@ setUnreadCount(totalUnread);
 
   return (
     <View
-      style={[
-        styles.bottomNav,
-        {
-          height: 66 + insets.bottom,
-          paddingBottom: insets.bottom,
-        },
-      ]}
+      style={[styles.bottomNav, { paddingBottom: Math.max(insets.bottom, 6) }]}
     >
       {(["home", "search", "chat", "mypage"] as TabKey[]).map((tab) => {
         const isActive = activeTab === tab;
-
-        const Icon = isActive
+        const iconName = isActive
           ? TAB_ICONS[tab].active
           : TAB_ICONS[tab].inactive;
+        const color = isActive ? palette.primary : palette.textMute;
 
         return (
           <Pressable
@@ -203,21 +161,15 @@ setUnreadCount(totalUnread);
             }
             accessibilityState={{ selected: isActive }}
           >
-            <View
-              style={{
-                width: 36,
-                height: 36,
-                position: "relative",
-              }}
-            >
-              <Icon width={36} height={36} />
+            <View style={{ position: "relative" }}>
+              <Ionicons name={iconName} size={23} color={color} />
 
               {tab === "chat" && unreadCount > 0 && (
                 <View
                   style={{
                     position: "absolute",
                     top: -4,
-                    right: -7,
+                    right: -9,
                     minWidth: 18,
                     height: 18,
                     paddingHorizontal: 4,
@@ -241,6 +193,17 @@ setUnreadCount(totalUnread);
                 </View>
               )}
             </View>
+
+            <Text
+              style={[
+                styles.navLabel,
+                { color },
+                isActive && styles.navLabelActive,
+              ]}
+              numberOfLines={1}
+            >
+              {TAB_LABELS[tab]}
+            </Text>
           </Pressable>
         );
       })}

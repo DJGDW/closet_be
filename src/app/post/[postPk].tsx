@@ -354,12 +354,8 @@ export default function PostDetailScreen() {
               />
 
               <LinearGradient
-                colors={[
-                  "rgba(0,0,0,0)",
-                  "rgba(0,0,0,0.08)",
-                  "rgba(0,0,0,0.68)",
-                ]}
-                locations={[0, 0.58, 1]}
+                colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.42)"]}
+                locations={[0, 1]}
                 style={styles.heroGradient}
                 pointerEvents="none"
               />
@@ -398,14 +394,14 @@ export default function PostDetailScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={isLiked ? "좋아요 취소" : "좋아요"}
               >
+                <Text style={styles.likeCount}>
+                  {post.likeCount.toLocaleString("ko-KR")}
+                </Text>
+
                 <Text
                   style={[styles.heartIcon, isLiked && styles.heartIconActive]}
                 >
                   ♥
-                </Text>
-
-                <Text style={styles.likeCount}>
-                  {post.likeCount.toLocaleString("ko-KR")}
                 </Text>
               </Pressable>
             </View>
@@ -444,12 +440,14 @@ export default function PostDetailScreen() {
 
                 <View style={styles.hashtagList}>
                   {post.hashtags.length > 0 ? (
-                    post.hashtags.map((hashtag, index) =>
-                      renderTag(
-                        hashtag.startsWith("#") ? hashtag : `#${hashtag}`,
-                        index,
-                      ),
-                    )
+                    post.hashtags.map((hashtag, index) => (
+                      <Text
+                        key={`${hashtag}-${index}`}
+                        style={styles.hashtagText}
+                      >
+                        {hashtag.startsWith("#") ? hashtag : `#${hashtag}`}
+                      </Text>
+                    ))
                   ) : (
                     <Text style={styles.emptyText}>
                       등록된 해시태그가 없습니다.
@@ -510,9 +508,9 @@ const styles = StyleSheet.create({
   hero: {
     width: "100%",
     height: undefined,
-    aspectRatio: 0.72,
+    aspectRatio: 0.67,
     position: "relative",
-    backgroundColor: "#EAE8ED",
+    backgroundColor: "#E7E7E7",
     overflow: "hidden",
   },
   heroImage: {
@@ -527,11 +525,11 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: "38%",
+    height: "18%",
   },
   profileArea: {
     position: "absolute",
-    left: 12,
+    left: 11,
     bottom: 12,
     flexDirection: "row",
     alignItems: "center",
@@ -539,22 +537,22 @@ const styles = StyleSheet.create({
     maxWidth: "72%",
   },
   profileImage: {
-    width: 34,
-    height: 34,
-    borderRadius: 20,
-    backgroundColor: "#EAEAEA",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FFFFFF",
   },
   profilePlaceholder: {
-    width: 34,
-    height: 34,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#FFFFFF",
   },
   profileInitial: {
     color: "#4D458B",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "700",
   },
   profileTextArea: {
@@ -562,25 +560,25 @@ const styles = StyleSheet.create({
   },
   profileName: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "700",
   },
   profileRole: {
     color: "#FFFFFF",
     fontSize: 10,
-    marginTop: 3,
+    marginTop: 4,
   },
   likeArea: {
     position: "absolute",
-    right: 12,
-    bottom: 14,
+    right: 11,
+    bottom: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
   heartIcon: {
     color: "#FFFFFF",
-    fontSize: 14,
+    fontSize: 12,
   },
   heartIconActive: {
     color: "#FF4D6D",
@@ -588,20 +586,20 @@ const styles = StyleSheet.create({
   likeCount: {
     color: "#FFFFFF",
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   detailPanel: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
+    paddingHorizontal: 14,
+    paddingTop: 12,
     paddingBottom: 28,
     backgroundColor: "#FFFFFF",
   },
   section: {
-    marginBottom: 12,
+    marginBottom: 18,
   },
   sectionTitle: {
-    marginBottom: 7,
-    color: "#242424",
+    marginBottom: 8,
+    color: "#222222",
     fontSize: 13,
     fontWeight: "700",
   },
@@ -611,24 +609,29 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tag: {
-    minHeight: 24,
-    paddingHorizontal: 11,
+    minHeight: 26,
+    paddingHorizontal: 12,
     paddingVertical: 5,
     justifyContent: "center",
     borderRadius: 14,
-    backgroundColor: "#F0EDFC",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E5DFFC",
+    borderColor: "#4D458B",
   },
   tagText: {
-    color: "#4D458B",
-    fontSize: 10,
-    fontWeight: "500",
+    color: "#3F3680",
+    fontSize: 11,
+    fontWeight: "600",
   },
   hashtagList: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
+    columnGap: 6,
+    rowGap: 4,
+  },
+  hashtagText: {
+    color: "#7C6DE0",
+    fontSize: 11,
   },
   emptyText: {
     color: "#999999",
