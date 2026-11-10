@@ -16,10 +16,13 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import styles from "../styles/stylist-register.styles";
 
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 // 등록 화면(stylist-register.tsx)과 같은 선택지
 const LOCATIONS = [
@@ -144,6 +147,8 @@ async function getAccessToken() {
 }
 
 export default function StylistEditScreen() {
+  const insets = useSafeAreaInsets();
+
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -728,7 +733,9 @@ export default function StylistEditScreen() {
           })}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View
+          style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}
+        >
           <Pressable
             style={[styles.primaryButton, submitting && styles.buttonDisabled]}
             onPress={handleSave}

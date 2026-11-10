@@ -9,17 +9,20 @@ import {
   Image,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
   TextInput,
   View,
 } from "react-native";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import ImagePlaceholderIcon from "../../assets/icons/image-placeholder.svg";
 import styles from "../styles/create-post.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";;
+const API_BASE_URL = "http://192.168.0.5:8080";
 
 const STYLES = [
   { id: 1, label: "캐주얼" },
@@ -82,6 +85,8 @@ function showMessage(title: string, message: string) {
 }
 
 export default function CreatePostScreen() {
+  const insets = useSafeAreaInsets();
+
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
 
   const [selectedStyles, setSelectedStyles] = useState<number[]>([]);
@@ -317,7 +322,7 @@ export default function CreatePostScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
 
       <View style={styles.header}>
@@ -463,8 +468,10 @@ export default function CreatePostScreen() {
         </View>
       </ScrollView>
 
-      {/* 등록 버튼 (하단 고정) */}
-      <View style={styles.footer}>
+      {/* 등록 버튼 (하단 고정, 시스템 내비게이션 바 위로 올림) */}
+      <View
+        style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}
+      >
         <Pressable
           onPress={submitPost}
           disabled={submitting}

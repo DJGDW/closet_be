@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.219.107:8080";
+const API_BASE_URL = "http://192.168.0.5:8080";
 const PURPLE = "#51458C";
 
 // order.purchaseStatus: 0 결제 대기 / 1 결제 완료 / 2 결제 취소

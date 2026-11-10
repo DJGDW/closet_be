@@ -1,7 +1,10 @@
 import { router } from "expo-router";
+import { File as ExpoFile } from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -16,6 +19,14 @@ import common from "../styles/signup-common.styles";
 import styles from "../styles/signup-step4.styles";
 
 type ResultType = "success" | "error" | "";
+
+// 새로 고른 프로필 이미지 (가입 요청 시 profileImage 파트로 업로드)
+type PickedImage = {
+  uri: string;
+  file?: File;
+  name: string;
+  mimeType: string;
+};
 
 const API_BASE_URL = "http://192.168.0.5:8080";
 
@@ -46,6 +57,7 @@ export default function SignupStep4() {
   const [resultMessage, setResultMessage] = useState("");
   const [resultType, setResultType] = useState<ResultType>("");
   const [error, setError] = useState("");
+  const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
 
   // 웹과 모바일 모두에서 안내 표시
   const showMessage = (title: string, message: string) => {
@@ -53,6 +65,43 @@ export default function SignupStep4() {
       window.alert(`${title}\n\n${message}`);
     } else {
       Alert.alert(title, message);
+    }
+  };
+
+  // 프로필 사진 선택 (가입 완료 전까지는 화면에만 미리보기)
+  const handlePickImage = async () => {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        showMessage(
+          "사진 접근 권한",
+          "프로필 사진을 선택하려면 사진 접근 권한이 필요해요.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+
+      setPickedImage({
+        uri: asset.uri,
+        file: (asset as any).file as File | undefined,
+        name: asset.fileName || `profile-${Date.now()}.jpg`,
+        mimeType: asset.mimeType || "image/jpeg",
+      });
+    } catch (err) {
+      console.error("프로필 사진 선택 오류:", err);
+      showMessage("오류", "사진을 불러오지 못했어요.");
     }
   };
 
@@ -233,6 +282,7 @@ export default function SignupStep4() {
     }
 
     // UserSignupRequestDto 구조에 맞춘 요청 데이터
+    // profilePic은 서버가 업로드된 파일 URL로 채우므로 null로 보냄
     const requestData = {
       userName: data.userName.trim(),
       userId: data.userId.trim(),
@@ -262,9 +312,34 @@ export default function SignupStep4() {
         }),
       );
 
+      // 프로필 사진 (선택사항): 고른 경우에만 profileImage 파트 추가
+      if (pickedImage) {
+        if (Platform.OS === "web") {
+          let imageFile = pickedImage.file;
+
+          if (!imageFile) {
+            const imageResponse = await fetch(pickedImage.uri);
+
+            if (!imageResponse.ok) {
+              throw new Error("선택한 이미지를 읽지 못했어요.");
+            }
+
+            const imageBlob = await imageResponse.blob();
+            imageFile = new File([imageBlob], pickedImage.name, {
+              type: pickedImage.mimeType,
+            });
+          }
+
+          formData.append("profileImage", imageFile, imageFile.name);
+        } else {
+          formData.append("profileImage", new ExpoFile(pickedImage.uri) as any);
+        }
+      }
+
       console.log("회원가입 요청 시작:", {
         ...requestData,
         userPw: "***",
+        hasProfileImage: !!pickedImage,
       });
 
       const response = await fetch(`${API_BASE_URL}/user/signup`, {
@@ -362,18 +437,24 @@ export default function SignupStep4() {
           {/* 프로필 사진 */}
           <View style={styles.profileSection}>
             <Pressable
-              style={styles.avatar}
-              onPress={() =>
-                showMessage(
-                  "프로필 사진",
-                  "사진 선택 기능은 아직 연결되지 않았습니다. 프로필 사진 없이 가입할 수 있습니다.",
-                )
-              }
+              style={[styles.avatar, { overflow: "hidden" }]}
+              onPress={handlePickImage}
+              disabled={isSubmitting}
               accessibilityLabel="프로필 사진 선택"
             >
-              <View style={styles.avatarHead} />
-              <View style={styles.avatarBody} />
-              <Text style={styles.cameraMark}>+</Text>
+              {pickedImage ? (
+                <Image
+                  source={{ uri: pickedImage.uri }}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <>
+                  <View style={styles.avatarHead} />
+                  <View style={styles.avatarBody} />
+                  <Text style={styles.cameraMark}>+</Text>
+                </>
+              )}
             </Pressable>
           </View>
 
@@ -425,7 +506,11 @@ export default function SignupStep4() {
             ) : null}
           </View>
 
-          <Text style={styles.photoHint}>프로필 사진은 선택사항입니다.</Text>
+          <Text style={styles.photoHint}>
+            {pickedImage
+              ? "사진을 다시 누르면 다른 사진으로 바꿀 수 있어요."
+              : "프로필 사진은 선택사항입니다."}
+          </Text>
         </ScrollView>
 
         {/* 가입 완료 버튼 */}

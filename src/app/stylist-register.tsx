@@ -1,22 +1,27 @@
-
 import { router } from "expo-router";
+import { File as ExpoFile } from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StatusBar,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import styles from "../styles/stylist-register.styles";
+import { PLANS } from "../constants/plans";
 
 const API_BASE_URL = "http://192.168.0.5:8080";
 
@@ -55,48 +60,89 @@ const STYLE_TYPES = [
   { id: 12, name: "스포츠/애슬레저" },
 ];
 
-const PLANS = [
-  {
-    id: 1,
-    name: "베이직",
-    tagline: "기본 상담 중심",
-    description: "가볍게 시작하는 스타일 상담",
-    features: ["채팅 상담", "코디 제안 1세트", "간단한 스타일 피드백"],
-  },
-  {
-    id: 2,
-    name: "스탠다드",
-    tagline: "상담과 추천을 함께",
-    description: "더 자세한 스타일 상담",
-    features: [
-      "채팅 + 영상 통화 (30분)",
-      "코디 제안 2~3세트",
-      "추천 상품 링크 제공",
-    ],
-  },
-  {
-    id: 3,
-    name: "프리미엄",
-    tagline: "집중 케어",
-    description: "맞춤형 스타일링 솔루션",
-    features: [
-      "동행 쇼핑 (시간 협의)",
-      "퍼스널 스타일 컨설팅",
-      "맞춤 코디 제안 및 쇼핑 가이드",
-    ],
-  },
-];
-
 const CUSTOMER_GROUPS = ["10대", "20대", "30대", "40대 이상"];
 
 const MAX_STYLE_SELECTION = 5;
+
+// 새로 고른 프로필 이미지 (등록 성공 후 PATCH /user/update로 업로드)
+type PickedImage = {
+  uri: string;
+  file?: File;
+  name: string;
+  mimeType: string;
+};
 
 type PlanPrice = {
   selected: boolean;
   price: string;
 };
 
+// 웹에서는 Alert가 동작하지 않아서 window.alert로 대체
+function showMessage(title: string, message: string, onClose?: () => void) {
+  if (Platform.OS === "web") {
+    window.alert(`${title}\n\n${message}`);
+    onClose?.();
+  } else {
+    Alert.alert(title, message, [{ text: "확인", onPress: onClose }]);
+  }
+}
+
+async function getAccessToken() {
+  try {
+    if (Platform.OS === "web") {
+      return typeof localStorage !== "undefined"
+        ? localStorage.getItem("accessToken")
+        : null;
+    }
+    return await SecureStore.getItemAsync("accessToken");
+  } catch {
+    return null;
+  }
+}
+
+// PATCH /user/update : 유저 프로필 사진 변경 (스타일리스트도 같은 API 사용)
+// request(JSON)는 필수 항목이 없어서 {} 만 보내면 됨
+async function uploadProfileImage(token: string, image: PickedImage) {
+  const formData = new FormData();
+
+  formData.append(
+    "request",
+    new Blob([JSON.stringify({})], { type: "application/json" }),
+  );
+
+  if (Platform.OS === "web") {
+    let imageFile = image.file;
+
+    if (!imageFile) {
+      const imageResponse = await fetch(image.uri);
+      if (!imageResponse.ok) {
+        throw new Error("선택한 이미지를 읽지 못했어요.");
+      }
+      const imageBlob = await imageResponse.blob();
+      imageFile = new File([imageBlob], image.name, { type: image.mimeType });
+    }
+
+    formData.append("profileImage", imageFile, imageFile.name);
+  } else {
+    formData.append("profileImage", new ExpoFile(image.uri) as any);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/user/update`, {
+    method: "PATCH",
+    headers: { Authorization: `Bearer ${token}` },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    console.error("프로필 사진 업로드 실패:", response.status, text);
+    throw new Error(`프로필 사진을 저장하지 못했어요. (${response.status})`);
+  }
+}
+
 export default function StylistRegisterScreen() {
+  const insets = useSafeAreaInsets();
+
   const [step, setStep] = useState(1);
   const [introduction, setIntroduction] = useState("");
   const [specialtyIntroduction, setSpecialtyIntroduction] = useState("");
@@ -109,6 +155,68 @@ export default function StylistRegisterScreen() {
     3: { selected: false, price: "" },
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // 현재 프로필 사진(GET /user/me)과 새로 고른 사진
+  const [profilePic, setProfilePic] = useState<string | null>(null);
+  const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
+
+  // 현재 내 프로필 사진 불러오기 (실패해도 등록에는 영향 없음)
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await getAccessToken();
+        if (!token) return;
+
+        const response = await fetch(`${API_BASE_URL}/user/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const data = result?.data ?? result?.result ?? result;
+        setProfilePic(data?.profilePic ?? null);
+      } catch (error) {
+        console.error("내 프로필 사진 조회 오류:", error);
+      }
+    })();
+  }, []);
+
+  // 프로필 이미지 선택 (등록 완료 전까지는 화면에만 미리보기)
+  async function pickProfileImage() {
+    try {
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (!permission.granted) {
+        showMessage(
+          "사진 접근 권한",
+          "프로필 사진을 선택하려면 사진 접근 권한이 필요해요.",
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85,
+      });
+
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets[0];
+
+      setPickedImage({
+        uri: asset.uri,
+        file: (asset as any).file as File | undefined,
+        name: asset.fileName || `profile-${Date.now()}.jpg`,
+        mimeType: asset.mimeType || "image/jpeg",
+      });
+    } catch (error) {
+      console.error("프로필 사진 선택 오류:", error);
+      showMessage("오류", "사진을 불러오지 못했어요.");
+    }
+  }
 
   function toggleCustomerGroup(group: string) {
     setSelectedCustomerGroups((current) =>
@@ -153,10 +261,6 @@ export default function StylistRegisterScreen() {
     }));
   }
 
-  function showMessage(title: string, message: string) {
-    Alert.alert(title, message);
-  }
-
   function goNext() {
     if (step === 1) {
       if (locationPk === null) {
@@ -187,7 +291,10 @@ export default function StylistRegisterScreen() {
     for (const plan of selectedPlans) {
       const price = Number(planPrices[plan.id].price);
       if (!Number.isInteger(price) || price <= 0) {
-        showMessage("플랜 가격", `${plan.name} 플랜의 가격을 1원 이상 입력해 주세요.`);
+        showMessage(
+          "플랜 가격",
+          `${plan.name} 플랜의 가격을 1원 이상 입력해 주세요.`,
+        );
         return;
       }
     }
@@ -195,16 +302,17 @@ export default function StylistRegisterScreen() {
     setSubmitting(true);
 
     try {
-      const accessToken =
-        Platform.OS === "web"
-          ? localStorage.getItem("accessToken")
-          : await SecureStore.getItemAsync("accessToken");
+      const accessToken = await getAccessToken();
 
       if (!accessToken) {
-        showMessage("로그인 필요", "로그인 정보가 없습니다. 다시 로그인해 주세요.");
+        showMessage(
+          "로그인 필요",
+          "로그인 정보가 없습니다. 다시 로그인해 주세요.",
+        );
         return;
       }
 
+      // 1. 스타일리스트 등록
       const response = await fetch(`${API_BASE_URL}/stylist/register`, {
         method: "POST",
         headers: {
@@ -223,32 +331,48 @@ export default function StylistRegisterScreen() {
       });
 
       if (response.status === 201) {
-  const profileData = {
-    introduction: introduction.trim(),
-    locationPk,
-    styleTypePks,
-    plans: selectedPlans.map((plan) => ({
-      planPk: plan.id,
-      price: Number(planPrices[plan.id].price),
-    })),
-  };
+        const profileData = {
+          introduction: introduction.trim(),
+          locationPk,
+          styleTypePks,
+          plans: selectedPlans.map((plan) => ({
+            planPk: plan.id,
+            price: Number(planPrices[plan.id].price),
+          })),
+        };
 
-  if (Platform.OS === "web") {
-    localStorage.setItem(
-      "myStylistProfile",
-      JSON.stringify(profileData),
-    );
-  } else {
-    await SecureStore.setItemAsync(
-      "myStylistProfile",
-      JSON.stringify(profileData),
-    );
-  }
+        // 피드의 게시물 작성 버튼이 스타일리스트 여부 판별에 사용
+        if (Platform.OS === "web") {
+          localStorage.setItem("myStylistProfile", JSON.stringify(profileData));
+        } else {
+          await SecureStore.setItemAsync(
+            "myStylistProfile",
+            JSON.stringify(profileData),
+          );
+        }
 
-  showMessage("등록 완료", "스타일리스트 등록이 완료되었습니다.");
-  router.replace("/mypage");
-  return;
-}
+        // 2. 새 프로필 사진을 골랐다면 업로드 (등록은 이미 완료된 상태)
+        let photoFailed = false;
+
+        if (pickedImage) {
+          try {
+            await uploadProfileImage(accessToken, pickedImage);
+          } catch (error) {
+            console.error("등록 후 프로필 사진 업로드 오류:", error);
+            photoFailed = true;
+          }
+        }
+
+        showMessage(
+          "등록 완료",
+          photoFailed
+            ? "스타일리스트 등록은 완료되었어요. 프로필 사진은 저장하지 못했으니 프로필 수정에서 다시 설정해 주세요."
+            : "스타일리스트 등록이 완료되었습니다.",
+          () => router.replace("/mypage"),
+        );
+        return;
+      }
+
       const responseText = await response.text();
       let errorMessage = "스타일리스트 등록에 실패했습니다.";
 
@@ -262,7 +386,8 @@ export default function StylistRegisterScreen() {
       }
 
       if (response.status === 401 || response.status === 403) {
-        errorMessage = "로그인이 만료되었거나 등록 권한이 없습니다. 다시 로그인해 주세요.";
+        errorMessage =
+          "로그인이 만료되었거나 등록 권한이 없습니다. 다시 로그인해 주세요.";
       } else if (response.status === 409) {
         errorMessage = "이미 스타일리스트로 등록되어 있는지 확인해 주세요.";
       }
@@ -279,9 +404,11 @@ export default function StylistRegisterScreen() {
     }
   }
 
+  const previewUri = pickedImage?.uri ?? profilePic;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar barStyle="dark-content"  />
+      <StatusBar barStyle="dark-content" />
 
       <KeyboardAvoidingView
         style={styles.screen}
@@ -318,7 +445,12 @@ export default function StylistRegisterScreen() {
                   {item}
                 </Text>
               </View>
-              <Text style={[styles.progressLabel, step === item && styles.progressLabelActive]}>
+              <Text
+                style={[
+                  styles.progressLabel,
+                  step === item && styles.progressLabelActive,
+                ]}
+              >
                 {["기본 정보", "전문 분야", "서비스 설정"][item - 1]}
               </Text>
             </View>
@@ -342,15 +474,26 @@ export default function StylistRegisterScreen() {
               <Text style={styles.fieldLabel}>프로필 이미지</Text>
               <Pressable
                 style={styles.imagePlaceholder}
-                onPress={() =>
-                  showMessage(
-                    "프로필 이미지",
-                    "이미지 업로드 API가 준비되면 연결할 수 있어요.",
-                  )
-                }
+                onPress={pickProfileImage}
+                disabled={submitting}
+                accessibilityRole="button"
+                accessibilityLabel="프로필 이미지 변경"
               >
-                <Text style={styles.imagePlus}>＋</Text>
+                {previewUri ? (
+                  <Image
+                    source={{ uri: previewUri }}
+                    style={{ width: "100%", height: "100%", borderRadius: 6 }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.imagePlus}>＋</Text>
+                )}
               </Pressable>
+              <Text style={styles.helperText}>
+                {pickedImage
+                  ? "등록을 완료하면 새 프로필 사진이 적용돼요."
+                  : "회원가입 때 설정한 프로필 사진과 같아요. 눌러서 바꿀 수 있어요."}
+              </Text>
 
               <Text style={styles.fieldLabel}>소개글 *</Text>
               <TextInput
@@ -382,7 +525,12 @@ export default function StylistRegisterScreen() {
                       ]}
                       onPress={() => toggleCustomerGroup(group)}
                     >
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          selected && styles.chipTextSelected,
+                        ]}
+                      >
                         {group}
                       </Text>
                     </Pressable>
@@ -391,18 +539,26 @@ export default function StylistRegisterScreen() {
               </View>
 
               <Text style={styles.fieldLabel}>활동 지역 *</Text>
-              <Text style={styles.helperText}>활동할 지역을 하나 선택해 주세요.</Text>
+              <Text style={styles.helperText}>
+                활동할 지역을 하나 선택해 주세요.
+              </Text>
               <View style={styles.locationGrid}>
                 {LOCATIONS.map((location) => {
                   const selected = locationPk === location.id;
                   return (
                     <Pressable
                       key={location.id}
-                      style={[styles.locationChip, selected && styles.chipSelected]}
+                      style={[
+                        styles.locationChip,
+                        selected && styles.chipSelected,
+                      ]}
                       onPress={() => setLocationPk(location.id)}
                     >
                       <Text
-                        style={[styles.chipText, selected && styles.chipTextSelected]}
+                        style={[
+                          styles.chipText,
+                          selected && styles.chipTextSelected,
+                        ]}
                         numberOfLines={1}
                       >
                         {location.name}
@@ -436,7 +592,12 @@ export default function StylistRegisterScreen() {
                       style={[styles.styleChip, selected && styles.chipSelected]}
                       onPress={() => toggleStyle(style.id)}
                     >
-                      <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                      <Text
+                        style={[
+                          styles.chipText,
+                          selected && styles.chipTextSelected,
+                        ]}
+                      >
                         {style.name}
                       </Text>
                     </Pressable>
@@ -447,7 +608,9 @@ export default function StylistRegisterScreen() {
               <Text style={styles.fieldLabel}>선택한 스타일</Text>
               <Text style={styles.selectedSummary}>
                 {styleTypePks.length
-                  ? STYLE_TYPES.filter((style) => styleTypePks.includes(style.id))
+                  ? STYLE_TYPES.filter((style) =>
+                      styleTypePks.includes(style.id),
+                    )
                       .map((style) => style.name)
                       .join(" · ")
                   : "선택한 스타일이 여기에 표시됩니다."}
@@ -481,7 +644,10 @@ export default function StylistRegisterScreen() {
                 return (
                   <View
                     key={plan.id}
-                    style={[styles.planCard, planState.selected && styles.planCardSelected]}
+                    style={[
+                      styles.planCard,
+                      planState.selected && styles.planCardSelected,
+                    ]}
                   >
                     <View style={styles.planHeader}>
                       <Pressable
@@ -502,7 +668,9 @@ export default function StylistRegisterScreen() {
                         </View>
                         <View style={styles.planNameArea}>
                           <Text style={styles.planName}>{plan.name}</Text>
-                          <Text style={styles.planDescription}>{plan.description}</Text>
+                          <Text style={styles.planDescription}>
+                            {plan.description}
+                          </Text>
                         </View>
                       </Pressable>
 
@@ -560,7 +728,9 @@ export default function StylistRegisterScreen() {
           )}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View
+          style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}
+        >
           <Pressable
             style={[styles.primaryButton, submitting && styles.buttonDisabled]}
             onPress={step === 3 ? handleRegister : goNext}
@@ -579,4 +749,3 @@ export default function StylistRegisterScreen() {
     </SafeAreaView>
   );
 }
-

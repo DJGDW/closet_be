@@ -19,6 +19,7 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
+import { getPlanFeatures } from "../../constants/plans";
 
 const API_BASE_URL = "http://192.168.0.5:8080";
 
@@ -61,6 +62,7 @@ type Service = {
   description: string;
   price: number;
   color: string;
+  features: string[];
 };
 
 const SERVICE_COLORS = ["#8275E8", "#68AAB5", "#D99A35"];
@@ -535,6 +537,7 @@ export default function StylistProfileScreen() {
     description: plan.description || "스타일링 서비스",
     price: typeof plan.price === "number" ? plan.price : 0,
     color: SERVICE_COLORS[index % SERVICE_COLORS.length],
+    features: getPlanFeatures(plan.planPk),
   }));
 
   const selectedServiceData =
@@ -983,6 +986,36 @@ export default function StylistProfileScreen() {
                       >
                         {service.description}
                       </Text>
+                      {service.features.length > 0 && (
+                        <View style={{ marginTop: 8, gap: 3 }}>
+                          {service.features.map((feature) => (
+                            <View
+                              key={feature}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "flex-start",
+                                gap: 5,
+                              }}
+                            >
+                              <Text
+                                style={{ fontSize: 11, color: service.color }}
+                              >
+                                ✓
+                              </Text>
+                              <Text
+                                style={{
+                                  flex: 1,
+                                  fontSize: 11,
+                                  lineHeight: 16,
+                                  color: "#66636E",
+                                }}
+                              >
+                                {feature}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
 
                       <Text
                         style={{

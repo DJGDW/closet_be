@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -61,6 +62,7 @@ export default function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showStylistModal, setShowStylistModal] = useState(false);
 
   const getAccessToken = async () => {
     if (Platform.OS === "web") {
@@ -68,6 +70,26 @@ export default function FeedScreen() {
     }
 
     return await SecureStore.getItemAsync("accessToken");
+  };
+
+  // 스타일리스트 여부: 서버에 내 스타일리스트 정보를 요청해서 확인
+  const checkIsStylist = async (): Promise<boolean> => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return false;
+
+      const response = await fetch(`${API_BASE_URL}/stylist/me`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log("[스타일리스트 확인] HTTP 상태:", response.status);
+
+      return response.ok;
+    } catch (error) {
+      console.error("스타일리스트 여부 확인 오류:", error);
+      return false;
+    }
   };
 
   // 읽지 않은 알림 개수 조회
@@ -223,6 +245,22 @@ export default function FeedScreen() {
     router.push("/notification");
   };
 
+  // 게시물 작성: 스타일리스트만 가능, 아니면 안내 모달 표시
+  const handleCreatePostPress = async () => {
+    const isStylist = await checkIsStylist();
+
+    if (isStylist) {
+      router.push("/create-post");
+    } else {
+      setShowStylistModal(true);
+    }
+  };
+
+  const handleGoStylistRegister = () => {
+    setShowStylistModal(false);
+    router.push("/stylist-register");
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
@@ -238,7 +276,20 @@ export default function FeedScreen() {
           </View>
 
           <View style={styles.headerActions}>
-                        <Pressable
+            <Pressable
+              style={styles.headerIconButton}
+              onPress={handleCreatePostPress}
+              accessibilityRole="button"
+              accessibilityLabel="게시물 작성"
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={27}
+                color={COLORS.text}
+              />
+            </Pressable>
+
+            <Pressable
               style={styles.headerIconButton}
               onPress={handleNotificationPress}
               accessibilityRole="button"
@@ -407,6 +458,76 @@ export default function FeedScreen() {
           )}
         </ScrollView>
       </View>
+
+      {/* 스타일리스트 전용 안내 모달 */}
+      <Modal
+        visible={showStylistModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowStylistModal(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            alignItems: "center",
+            paddingHorizontal: 32,
+          }}
+          onPress={() => setShowStylistModal(false)}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={{
+              width: "100%",
+              maxWidth: 320,
+              backgroundColor: "#FFFFFF",
+              borderRadius: 16,
+              paddingHorizontal: 24,
+              paddingTop: 32,
+              paddingBottom: 20,
+              alignItems: "center",
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: "700",
+                color: COLORS.text,
+                textAlign: "center",
+                marginBottom: 24,
+              }}
+            >
+              스타일리스트만 게시물을 등록할 수 있어요!
+            </Text>
+
+            <Pressable
+              onPress={handleGoStylistRegister}
+              style={{
+                width: "100%",
+                height: 46,
+                borderRadius: 10,
+                backgroundColor: COLORS.purple,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text
+                style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "700" }}
+              >
+                스타일리스트로 가입하기
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => setShowStylistModal(false)}
+              style={{ marginTop: 12, padding: 6 }}
+            >
+              <Text style={{ fontSize: 13, color: COLORS.subText }}>닫기</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
