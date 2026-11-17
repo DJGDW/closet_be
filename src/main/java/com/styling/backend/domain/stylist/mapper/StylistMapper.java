@@ -1,3 +1,4 @@
+
 package com.styling.backend.domain.stylist.mapper;
 
 import com.styling.backend.domain.location.entity.Location;
@@ -73,6 +74,7 @@ public class StylistMapper {
                         .toList();
 
         return new StylistDetailResponseDto(
+                stylist.getStylistPk(),
                 stylist.getUser().getNickname(),
                 stylist.getUser().getProfilePic(),
                 stylist.getIntroduction(),

@@ -16,4 +16,5 @@ public class PostDetailResponseDto {
     private String styleName;
     private List<String> hashtags;
     private String ratioType;
+    private Long stylistPk;
 }

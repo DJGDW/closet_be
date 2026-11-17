@@ -1,3 +1,4 @@
+
 package com.styling.backend.domain.stylist.dto;
 
 import lombok.AllArgsConstructor;
@@ -10,6 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class StylistDetailResponseDto {
 
+    private Long stylistPk;
     private String nickname;
     private String profilePic;
     private String introduction;

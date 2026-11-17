@@ -39,14 +39,16 @@ public class PostDetailServiceImpl implements PostDetailService {
                         postPk, 0
                 );
 
-        return PostDetailResponseDto.builder()
-                .profileImage(post.getStylist().getUser().getProfilePic())
-                .stylistNickname(post.getStylist().getUser().getNickname())
-                .imageUrl(post.getContent())
-                .likeCount(likeCount)
-                .styleName(post.getStyleType().getStyleName())
-                .hashtags(hashtags)
-                .ratioType(post.getRatioType().getRatioType())
-                .build();
+       return PostDetailResponseDto.builder()
+        .profileImage(post.getStylist().getUser().getProfilePic())
+        .stylistNickname(post.getStylist().getUser().getNickname())
+        .imageUrl(post.getContent())
+        .likeCount(likeCount)
+        .styleName(post.getStyleType().getStyleName())
+        .hashtags(hashtags)
+        .ratioType(post.getRatioType().getRatioType())
+        .stylistPk(post.getStylist().getStylistPk())
+        .build();
+                
     }
 }
