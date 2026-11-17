@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../../../config/api";
 
 // 모자이크 배치 값 (디자인 402px 프레임 기준)
 const MAX_WIDTH = 402;

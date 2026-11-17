@@ -1,7 +1,8 @@
+
 import * as ImagePicker from "expo-image-picker";
 import * as SecureStore from "expo-secure-store";
-import { router } from "expo-router";
-import React, { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useEffect, useState } from "react";
 import { File as ExpoFile } from "expo-file-system";
 import {
   ActivityIndicator,
@@ -22,7 +23,7 @@ import {
 import ImagePlaceholderIcon from "../../assets/icons/image-placeholder.svg";
 import styles from "../styles/create-post.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../config/api";
 
 const STYLES = [
   { id: 1, label: "캐주얼" },
@@ -50,7 +51,6 @@ const BODY_TYPES = [
   { id: 6, label: "종아리가 두꺼운 체형" },
   { id: 7, label: "종아리가 얇은 체형" },
   { id: 8, label: "다리가 짧은 체형" },
-  // 보완할 체형이 없는 게시물용. DB ratio_type 테이블의 "없음" 행 PK와 맞아야 해요.
   { id: NO_BODY_TYPE_ID, label: "없음" },
 ];
 
@@ -87,15 +87,105 @@ function showMessage(title: string, message: string) {
 export default function CreatePostScreen() {
   const insets = useSafeAreaInsets();
 
+  const { editPostPk } = useLocalSearchParams<{
+    editPostPk?: string;
+  }>();
+
+  const isEditing = !!editPostPk;
+
   const [pickedImage, setPickedImage] = useState<PickedImage | null>(null);
+  const [imageChanged, setImageChanged] = useState(false);
 
   const [selectedStyles, setSelectedStyles] = useState<number[]>([]);
-
   const [selectedBodyTypes, setSelectedBodyTypes] = useState<number[]>([]);
 
   const [hashtagInput, setHashtagInput] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
+
   const [submitting, setSubmitting] = useState(false);
+  const [loadingPost, setLoadingPost] = useState(isEditing);
+
+  // 수정 모드일 때 기존 게시물 정보 불러오기
+  useEffect(() => {
+    if (!editPostPk) return;
+
+    const fetchPostForEdit = async () => {
+      try {
+        const token = await getAccessToken();
+
+        if (!token) {
+          showMessage("로그인이 필요해요", "다시 로그인해 주세요.");
+          router.replace("/");
+          return;
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/post/${encodeURIComponent(editPostPk)}`,
+          {
+            method: "GET",
+            headers: {
+              Accept: "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
+        if (!response.ok) {
+          throw new Error(
+            `게시물 정보를 불러오지 못했습니다. (HTTP ${response.status})`,
+          );
+        }
+
+        const result = await response.json();
+        const detail = result.data ?? result;
+
+        setPickedImage({
+          uri: detail.imageUrl,
+          name: "existing-post-image.jpg",
+          mimeType: "image/jpeg",
+        });
+
+        const matchedStyle = STYLES.find(
+          (item) => item.label === detail.styleName,
+        );
+
+        if (matchedStyle) {
+          setSelectedStyles([matchedStyle.id]);
+        }
+
+        const matchedBodyType = BODY_TYPES.find(
+          (item) => item.label === detail.ratioType,
+        );
+
+        if (matchedBodyType) {
+          setSelectedBodyTypes([matchedBodyType.id]);
+        }
+
+        setHashtags(
+          Array.isArray(detail.hashtags)
+            ? detail.hashtags.map((tag: string) =>
+                String(tag).replace(/^#+/, ""),
+              )
+            : [],
+        );
+      } catch (error) {
+        console.error("게시물 수정 정보 조회 오류:", error);
+
+        showMessage(
+          "게시물 조회 실패",
+          error instanceof Error
+            ? error.message
+            : "게시물 정보를 불러오지 못했습니다.",
+        );
+
+        router.back();
+      } finally {
+        setLoadingPost(false);
+      }
+    };
+
+    fetchPostForEdit();
+  }, [editPostPk]);
 
   const chooseImage = async () => {
     try {
@@ -129,6 +219,8 @@ export default function CreatePostScreen() {
         name: asset.fileName || `stylink-${Date.now()}.jpg`,
         mimeType: asset.mimeType || "image/jpeg",
       });
+
+      setImageChanged(true);
     } catch (error) {
       console.error("사진 선택 오류:", error);
       showMessage("오류", "사진을 불러오지 못했어요.");
@@ -153,7 +245,9 @@ export default function CreatePostScreen() {
         return previous.includes(id) ? [] : [NO_BODY_TYPE_ID];
       }
 
-      const withoutNone = previous.filter((item) => item !== NO_BODY_TYPE_ID);
+      const withoutNone = previous.filter(
+        (item) => item !== NO_BODY_TYPE_ID,
+      );
 
       return withoutNone.includes(id)
         ? withoutNone.filter((item) => item !== id)
@@ -162,11 +256,12 @@ export default function CreatePostScreen() {
   };
 
   const addHashtag = () => {
-    const cleaned = hashtagInput.trim().replace(/^#+/, "").replace(/\s+/g, "");
+    const cleaned = hashtagInput
+      .trim()
+      .replace(/^#+/, "")
+      .replace(/\s+/g, "");
 
-    if (!cleaned) {
-      return;
-    }
+    if (!cleaned) return;
 
     if (hashtags.includes(cleaned)) {
       setHashtagInput("");
@@ -182,9 +277,7 @@ export default function CreatePostScreen() {
   };
 
   const submitPost = async () => {
-    if (submitting) {
-      return;
-    }
+    if (submitting) return;
 
     if (!pickedImage) {
       showMessage("사진을 선택해 주세요", "게시물 사진이 필요해요.");
@@ -199,7 +292,6 @@ export default function CreatePostScreen() {
       return;
     }
 
-    // 현재 백엔드의 ratioPk는 필수 Long 파라미터다.
     if (selectedBodyTypes.length === 0) {
       showMessage(
         "체형 보완 태그를 선택해 주세요",
@@ -224,48 +316,45 @@ export default function CreatePostScreen() {
 
       const formData = new FormData();
 
-      if (Platform.OS === "web") {
-        let imageFile = pickedImage.file;
+      // 신규 등록이거나 수정 중 새 사진을 선택한 경우에만 이미지 전송
+      if (!isEditing || imageChanged) {
+        if (Platform.OS === "web") {
+          let imageFile = pickedImage.file;
 
-        if (!imageFile) {
-          const imageResponse = await fetch(pickedImage.uri);
+          if (!imageFile) {
+            const imageResponse = await fetch(pickedImage.uri);
 
-          if (!imageResponse.ok) {
-            throw new Error("선택한 이미지를 읽지 못했습니다.");
+            if (!imageResponse.ok) {
+              throw new Error("선택한 이미지를 읽지 못했습니다.");
+            }
+
+            const imageBlob = await imageResponse.blob();
+
+            imageFile = new File([imageBlob], pickedImage.name, {
+              type: pickedImage.mimeType,
+            });
           }
 
-          const imageBlob = await imageResponse.blob();
-
-          imageFile = new File([imageBlob], pickedImage.name, {
-            type: pickedImage.mimeType,
-          });
+          formData.append("image", imageFile, imageFile.name);
+        } else {
+          const imageFile = new ExpoFile(pickedImage.uri);
+          formData.append("image", imageFile);
         }
-
-        formData.append("image", imageFile, imageFile.name);
-      } else {
-        const imageFile = new ExpoFile(pickedImage.uri);
-
-        formData.append("image", imageFile);
       }
 
-      // 백엔드 PostController의 필드명과 일치시킨다.
       formData.append("typePk", String(selectedStyles[0]));
       formData.append("ratioPk", String(selectedBodyTypes[0]));
 
-      // List<String> hashtags를 받을 수 있도록 같은 이름으로 반복 전송한다.
       hashtags.forEach((tag) => {
         formData.append("hashtags", tag);
       });
 
-      console.log("게시물 등록 요청:", {
-        hasImage: true,
-        typePk: selectedStyles[0],
-        ratioPk: selectedBodyTypes[0],
-        hashtagCount: hashtags.length,
-      });
+      const url = isEditing
+        ? `${API_BASE_URL}/post/${encodeURIComponent(editPostPk!)}`
+        : `${API_BASE_URL}/post`;
 
-      const response = await fetch(`${API_BASE_URL}/post`, {
-        method: "POST",
+      const response = await fetch(url, {
+        method: isEditing ? "PUT" : "POST",
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -275,7 +364,7 @@ export default function CreatePostScreen() {
       const responseText = await response.text().catch(() => "");
 
       if (!response.ok) {
-        console.error("게시물 등록 실패:", {
+        console.error("게시물 저장 실패:", {
           status: response.status,
           response: responseText,
         });
@@ -291,26 +380,38 @@ export default function CreatePostScreen() {
 
         if (response.status === 403) {
           showMessage(
-            "게시물 등록 거부",
-            "서버가 요청을 거부했어요. 로그인 토큰, 보안 필터 및 서버 로그를 확인해 주세요.\n\n" +
-              (responseText ||
-                "서버에서 상세 오류 메시지를 반환하지 않았어요."),
+            "게시물 저장 거부",
+            "서버가 요청을 거부했어요.\n\n" +
+              (responseText || "서버 로그를 확인해 주세요."),
           );
           return;
         }
 
         showMessage(
-          "게시물 등록 실패",
+          isEditing ? "게시물 수정 실패" : "게시물 등록 실패",
           `HTTP ${response.status}\n\n` +
             (responseText || "서버에서 상세 오류 메시지를 반환하지 않았어요."),
         );
         return;
       }
 
-      showMessage("등록 완료", "게시물이 등록되었어요!");
-      router.replace("/feed");
+      showMessage(
+        isEditing ? "수정 완료" : "등록 완료",
+        isEditing
+          ? "게시물이 수정되었어요!"
+          : "게시물이 등록되었어요!",
+      );
+
+      router.replace(
+        isEditing
+          ? {
+              pathname: "/post/[postPk]",
+              params: { postPk: String(editPostPk) },
+            }
+          : "/feed",
+      );
     } catch (error) {
-      console.error("게시물 등록 오류:", error);
+      console.error("게시물 저장 오류:", error);
 
       showMessage(
         "네트워크 오류",
@@ -321,6 +422,25 @@ export default function CreatePostScreen() {
     }
   };
 
+  if (loadingPost) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={["top"]}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ActivityIndicator size="large" color="#4D458B" />
+          <Text style={{ marginTop: 12, color: "#777777" }}>
+            게시물 정보를 불러오는 중...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar barStyle="dark-content" />
@@ -330,7 +450,10 @@ export default function CreatePostScreen() {
           <Text style={styles.backText}>‹</Text>
         </Pressable>
 
-        <Text style={styles.headerTitle}>게시물 등록</Text>
+        <Text style={styles.headerTitle}>
+          {isEditing ? "게시물 수정" : "게시물 등록"}
+        </Text>
+
         <View style={styles.headerRight} />
       </View>
 
@@ -468,9 +591,12 @@ export default function CreatePostScreen() {
         </View>
       </ScrollView>
 
-      {/* 등록 버튼 (하단 고정, 시스템 내비게이션 바 위로 올림) */}
+      {/* 하단 버튼 */}
       <View
-        style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) + 4 }]}
+        style={[
+          styles.footer,
+          { paddingBottom: Math.max(insets.bottom, 12) + 4 },
+        ]}
       >
         <Pressable
           onPress={submitPost}
@@ -484,15 +610,21 @@ export default function CreatePostScreen() {
           {submitting ? (
             <View style={styles.loadingRow}>
               <ActivityIndicator color="#FFFFFF" />
-              <Text style={styles.submitButtonText}>등록 중...</Text>
+              <Text style={styles.submitButtonText}>
+                {isEditing ? "수정 중..." : "등록 중..."}
+              </Text>
             </View>
           ) : (
-            <Text style={styles.submitButtonText}>게시물 등록</Text>
+            <Text style={styles.submitButtonText}>
+              {isEditing ? "게시물 수정 완료" : "게시물 등록"}
+            </Text>
           )}
         </Pressable>
 
         <Text style={styles.footerText}>
-          사진을 등록한 후 게시물을 작성할 수 있어요.
+          {isEditing
+            ? "게시물 정보를 수정할 수 있어요."
+            : "사진을 등록한 후 게시물을 작성할 수 있어요."}
         </Text>
       </View>
     </SafeAreaView>

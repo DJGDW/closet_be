@@ -14,6 +14,7 @@ import {
 import { useSignup } from "../signup-context";
 import common from "../styles/signup-common.styles";
 import styles from "../styles/signup-step1.styles";
+import { API_BASE_URL } from "../config/api";
 
 type Gender = "male" | "female" | null;
 type FieldKey =
@@ -178,7 +179,7 @@ export default function SignupStep1() {
     setIsCheckingId(true);
 
     try {
-      const url = `http://192.168.0.5:8080/user/check-id?userId=${encodeURIComponent(trimmedUserId)}`;
+      const url = `${API_BASE_URL}/user/check-id?userId=${encodeURIComponent(trimmedUserId)}`;
 
       const response = await fetch(url);
 

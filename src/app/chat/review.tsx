@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../../config/api";
 const PURPLE = "#51458C";
 
 // 서버 한도(255자)에 맞춘 입력 규칙

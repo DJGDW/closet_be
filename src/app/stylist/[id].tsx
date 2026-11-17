@@ -21,7 +21,7 @@ import {
 import * as SecureStore from "expo-secure-store";
 import { getPlanFeatures } from "../../constants/plans";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../../config/api";
 
 type StyleTypeDto = {
   typePk: number;

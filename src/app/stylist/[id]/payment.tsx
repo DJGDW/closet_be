@@ -21,7 +21,7 @@ import {
 import * as SecureStore from "expo-secure-store";
 import * as Linking from "expo-linking";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../../../config/api";
 const TOSS_CLIENT_KEY = "test_ck_c19w7vBoxDeUvpgeSDlJHtMJUy9H7c7XDl";
 const PURPLE = "#51458C";
 

@@ -11,7 +11,7 @@ import * as SecureStore from "expo-secure-store";
 import { useState } from "react";
 
 const PURPLE = "#6246a1";
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../../../config/api";
 
 export default function PaymentSuccessScreen() {
   const router = useRouter();

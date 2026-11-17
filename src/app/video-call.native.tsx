@@ -13,14 +13,15 @@ import { Client } from "@stomp/stompjs";
 import * as SecureStore from "expo-secure-store";
 import {
   mediaDevices,
+  MediaStream,
   RTCView,
   RTCPeerConnection,
   RTCIceCandidate,
   RTCSessionDescription,
 } from "react-native-webrtc";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
-const WS_URL = "ws://192.168.0.5:8080/ws";
+import { API_BASE_URL, WS_URL } from "../config/api";
+
 
 // 백엔드 VideoCall.STATUS_* 값
 const STATUS_REJECTED = 2;
@@ -58,8 +59,10 @@ export default function VideoCallScreen() {
   const clientRef = useRef<Client | null>(null);
   const peerRef = useRef<any>(null);
   const localStreamRef = useRef<any>(null);
+  const remoteTracksRef = useRef<any[]>([]);
 
   // 상대 ICE 후보 (remoteDescription 설정 전에 도착한 것 보관)
+  
   const remoteCandidatesRef = useRef<any[]>([]);
   // 이미 처리한 상대 ICE 후보 (재전송 중복 제거)
   const seenRemoteCandidatesRef = useRef<Set<string>>(new Set());
@@ -102,6 +105,7 @@ export default function VideoCallScreen() {
     });
 
     localStreamRef.current = null;
+    remoteTracksRef.current = [];
     remoteCandidatesRef.current = [];
     seenRemoteCandidatesRef.current.clear();
     localCandidatesRef.current = [];
@@ -373,18 +377,29 @@ export default function VideoCallScreen() {
 
       // 상대방 영상 수신
       peer.ontrack = (event: any) => {
-        console.log("🎥 상대방 영상 트랙 수신:", event);
+        console.log("🎥 상대방 트랙 수신:", event.track?.kind);
 
-        const incomingStream = event.streams?.[0];
+        const track = event.track;
 
-        if (incomingStream) {
-          setRemoteStream(incomingStream);
-          setStatus("상대방과 영상이 연결되었습니다.");
-
-          console.log("✅ 상대방 영상 스트림 연결 완료");
-        } else {
-          console.log("⚠️ 수신된 영상 스트림이 없습니다.");
+        if (
+          track &&
+          !remoteTracksRef.current.some((item: any) => item.id === track.id)
+        ) {
+          remoteTracksRef.current.push(track);
         }
+
+        const baseTracks = event.streams?.[0]?.getTracks() ?? [];
+        const merged = [...baseTracks];
+
+        remoteTracksRef.current.forEach((item: any) => {
+          if (!merged.some((existing: any) => existing.id === item.id)) {
+            merged.push(item);
+          }
+        });
+
+        // 새 MediaStream 객체로 만들어 RTCView가 새로 온 비디오 트랙을 다시 붙이게 함
+        setRemoteStream(new MediaStream(merged));
+        setStatus("상대방과 영상이 연결되었습니다.");
       };
 
       // ICE Candidate 생성
@@ -613,9 +628,11 @@ export default function VideoCallScreen() {
       <View style={styles.remoteArea}>
         {remoteStream ? (
           <RTCView
+            key={remoteStream.toURL()}
             streamURL={remoteStream.toURL()}
             style={styles.video}
             objectFit="cover"
+            zOrder={0}
           />
         ) : (
           <Text style={styles.waiting}>상대방 연결 대기 중...</Text>
@@ -624,11 +641,12 @@ export default function VideoCallScreen() {
 
       {localStream && (
         <View style={styles.localArea}>
-          <RTCView
+           <RTCView
             streamURL={localStream.toURL()}
             style={styles.localVideo}
             objectFit="cover"
             mirror
+            zOrder={1}
           />
         </View>
       )}
@@ -680,7 +698,7 @@ const styles = StyleSheet.create({
   waiting: {
     color: "#FFFFFF",
   },
-  localArea: {
+   localArea: {
     position: "absolute",
     top: 70,
     right: 28,
@@ -689,6 +707,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: "hidden",
     backgroundColor: "#444444",
+    zIndex: 10,
+    elevation: 10,
   },
   localVideo: {
     width: "100%",

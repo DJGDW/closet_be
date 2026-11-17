@@ -22,7 +22,7 @@ import {
 } from "react-native-safe-area-context";
 import styles from "../styles/stylist-register.styles";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../config/api";
 
 // 등록 화면(stylist-register.tsx)과 같은 선택지
 const LOCATIONS = [

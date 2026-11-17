@@ -23,7 +23,7 @@ import {
 import styles from "../styles/stylist-register.styles";
 import { PLANS } from "../constants/plans";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../config/api";
 
 const LOCATIONS = [
   { id: 1, name: "서울특별시" },

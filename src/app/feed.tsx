@@ -1,3 +1,4 @@
+
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useCallback, useEffect, useState } from "react";
@@ -11,6 +12,7 @@ import {
   RefreshControl,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -19,8 +21,7 @@ import * as SecureStore from "expo-secure-store";
 import { router, useFocusEffect } from "expo-router";
 
 import { COLORS, styles } from "../styles/feed.styles";
-
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../config/api";
 
 type FeedPost = {
   postPk: number;
@@ -33,6 +34,7 @@ type FeedPost = {
   stylistProfileImage?: string | null;
   profileImage?: string | null;
   stylistProfilePic?: string | null;
+  profilePic?: string | null;
   viewCount?: number;
   likeCount?: number;
   recommendationScore?: number;
@@ -48,6 +50,75 @@ type UnreadCountResponse = {
   unreadCount: number;
 };
 
+type ViewMode = "user" | "stylist";
+type StylistModalType = "post" | "toggle";
+
+// 스타일리스트 뷰 색상
+const STYLIST_GOLD = "#B8892B";
+const STYLIST_NAVY = "#26204F";
+const STYLIST_BADGE_TEXT = "#F2C86B";
+
+// 헤더 배지/토글, 섹션 제목 스타일
+const extra = StyleSheet.create({
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  badge: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  toggleRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  toggleLabel: {
+    fontSize: 13,
+    color: COLORS.text,
+  },
+  toggleTrack: {
+    width: 46,
+    height: 26,
+    borderRadius: 999,
+    justifyContent: "center",
+  },
+  toggleThumb: {
+    position: "absolute",
+    top: 3,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.text,
+    paddingHorizontal: 4,
+    paddingTop: 6,
+    paddingBottom: 8,
+  },
+  sectionLabelSpaced: {
+    paddingTop: 18,
+  },
+  myPostsEmpty: {
+    fontSize: 13,
+    color: COLORS.subText,
+    paddingHorizontal: 4,
+    paddingBottom: 6,
+  },
+});
+
 // 좋아요 수 표기: 1234 -> 1.2천, 12345 -> 1.2만
 function formatCount(value?: number | null) {
   const n = Number(value ?? 0);
@@ -58,11 +129,24 @@ function formatCount(value?: number | null) {
 
 export default function FeedScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [myPosts, setMyPosts] = useState<FeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
   const [showStylistModal, setShowStylistModal] = useState(false);
+  const [stylistModalType, setStylistModalType] =
+    useState<StylistModalType>("post");
+
+  // 로그인한 계정이 스타일리스트인지
+  // null: 아직 확인 전 또는 확인 실패
+  const [isStylist, setIsStylist] = useState<boolean | null>(null);
+
+  // 현재 보고 있는 뷰
+  const [viewMode, setViewMode] = useState<ViewMode | null>(null);
+
+  const mode: ViewMode = viewMode ?? "user";
+  const isStylistView = mode === "stylist";
 
   const getAccessToken = async () => {
     if (Platform.OS === "web") {
@@ -72,7 +156,7 @@ export default function FeedScreen() {
     return await SecureStore.getItemAsync("accessToken");
   };
 
-  // 스타일리스트 여부: 서버에 내 스타일리스트 정보를 요청해서 확인
+  // 스타일리스트 여부 확인
   const checkIsStylist = async (): Promise<boolean> => {
     try {
       const token = await getAccessToken();
@@ -83,14 +167,97 @@ export default function FeedScreen() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("[스타일리스트 확인] HTTP 상태:", response.status);
-
       return response.ok;
     } catch (error) {
       console.error("스타일리스트 여부 확인 오류:", error);
       return false;
     }
   };
+
+  // 내 게시물 조회
+  const fetchMyPosts = useCallback(async (nickname: string) => {
+    try {
+      const token = await getAccessToken();
+      if (!token || !nickname) return;
+
+      const response = await fetch(
+        `${API_BASE_URL}/post/explore?page=0&size=50&sort=LATEST`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`내 게시물 요청 실패: HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      const list: FeedPost[] = Array.isArray(result)
+        ? result
+        : Array.isArray(result.content)
+          ? result.content
+          : Array.isArray(result.data)
+            ? result.data
+            : Array.isArray(result.posts)
+              ? result.posts
+              : [];
+
+      setMyPosts(
+        list.filter(
+          (post) =>
+            post &&
+            post.postPk != null &&
+            post.stylistNickname === nickname &&
+            typeof post.imageUrl === "string" &&
+            post.imageUrl.length > 0,
+        ),
+      );
+    } catch (error) {
+      console.error("내 게시물 불러오기 오류:", error);
+    }
+  }, []);
+
+  // 계정 역할 확인
+  // 200이면 스타일리스트, 404면 일반 유저
+  const fetchRole = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+      if (!token) return;
+
+      const response = await fetch(`${API_BASE_URL}/stylist/me`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        setIsStylist(true);
+
+        // 처음 확인할 때만 스타일리스트 화면으로 시작
+        setViewMode((previous) => previous ?? "stylist");
+
+        const result = await response.json().catch(() => null);
+        const data = result?.data ?? result?.result ?? result;
+
+        if (data?.nickname) {
+          fetchMyPosts(String(data.nickname));
+        }
+        return;
+      }
+
+      if (response.status === 404) {
+        setIsStylist(false);
+        setMyPosts([]);
+        setViewMode("user");
+      }
+    } catch (error) {
+      console.error("계정 역할 확인 오류:", error);
+    }
+  }, [fetchMyPosts]);
 
   // 읽지 않은 알림 개수 조회
   const fetchUnreadCount = useCallback(async () => {
@@ -129,6 +296,7 @@ export default function FeedScreen() {
     }
   }, []);
 
+  // 추천 게시물 조회
   const fetchRecommendedPosts = useCallback(async () => {
     setErrorMessage("");
 
@@ -168,7 +336,8 @@ export default function FeedScreen() {
         throw new Error(`추천 피드 요청 실패: HTTP ${response.status}`);
       }
 
-      const result: FeedPost[] | RecommendedResponse = await response.json();
+      const result: FeedPost[] | RecommendedResponse =
+        await response.json();
 
       const postList: FeedPost[] = Array.isArray(result)
         ? result
@@ -204,17 +373,19 @@ export default function FeedScreen() {
     fetchRecommendedPosts();
   }, [fetchRecommendedPosts]);
 
-  // 피드 화면에 다시 진입할 때 알림 개수 갱신
+  // 피드 화면에 다시 진입할 때 알림 개수와 내 게시물 갱신
   useFocusEffect(
     useCallback(() => {
       fetchUnreadCount();
-    }, [fetchUnreadCount]),
+      fetchRole();
+    }, [fetchUnreadCount, fetchRole]),
   );
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchRecommendedPosts();
     fetchUnreadCount();
+    fetchRole();
   };
 
   const handlePostPress = (post: FeedPost) => {
@@ -245,21 +416,132 @@ export default function FeedScreen() {
     router.push("/notification");
   };
 
-  // 게시물 작성: 스타일리스트만 가능, 아니면 안내 모달 표시
+  // 게시물 작성: 스타일리스트만 가능
   const handleCreatePostPress = async () => {
-    const isStylist = await checkIsStylist();
+    const stylist = await checkIsStylist();
 
-    if (isStylist) {
+    if (stylist) {
       router.push("/create-post");
     } else {
+      setStylistModalType("post");
       setShowStylistModal(true);
     }
+  };
+
+  // 유저 / 스타일리스트 뷰 전환
+  const handleToggleView = () => {
+    if (isStylist === null) {
+      Alert.alert(
+        "확인 실패",
+        "계정 정보를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+      );
+      fetchRole();
+      return;
+    }
+
+    if (!isStylist) {
+      setStylistModalType("toggle");
+      setShowStylistModal(true);
+      return;
+    }
+
+    setViewMode((previous) =>
+      previous === "stylist" ? "user" : "stylist",
+    );
   };
 
   const handleGoStylistRegister = () => {
     setShowStylistModal(false);
     router.push("/stylist-register");
   };
+
+  // 게시물 카드
+  const renderPostCard = (post: FeedPost) => (
+    <View key={post.postPk} style={styles.postCard}>
+      <Pressable
+        onPress={() => handlePostPress(post)}
+        accessibilityRole="button"
+        accessibilityLabel={`${post.styleName || "게시물"} 상세 보기`}
+      >
+        <Image
+          source={{ uri: post.imageUrl }}
+          style={styles.postImage}
+          resizeMode="cover"
+        />
+
+        <LinearGradient
+          colors={["rgba(0,0,0,0)", "rgba(10,8,20,0.6)"]}
+          locations={[0, 1]}
+          style={styles.imageGradient}
+          pointerEvents="none"
+        />
+      </Pressable>
+
+      <Pressable
+        style={styles.stylistInfo}
+        onPress={() => handleStylistPress(post)}
+        accessibilityRole="button"
+        accessibilityLabel={`${
+          post.stylistNickname || "스타일리스트"
+        } 프로필 보기`}
+      >
+        {(() => {
+          const profileUri =
+            post.stylistProfileImage ||
+            post.profileImage ||
+            post.stylistProfilePic ||
+            post.profilePic;
+
+          return profileUri ? (
+            <Image
+              source={{ uri: profileUri }}
+              style={styles.stylistProfileImage}
+            />
+          ) : (
+            <View style={styles.avatarFallback}>
+              <Text style={styles.avatarFallbackText}>
+                {(post.stylistNickname || "?").slice(0, 1).toUpperCase()}
+              </Text>
+            </View>
+          );
+        })()}
+
+        <View style={styles.stylistTextArea}>
+          <Text style={styles.stylistName} numberOfLines={1}>
+            {post.stylistNickname || "스타일리스트"}
+          </Text>
+
+          <Text style={styles.stylistStyle} numberOfLines={1}>
+            {post.styleName || "스타일"}
+          </Text>
+        </View>
+      </Pressable>
+
+      {/* 좋아요 수 */}
+      <View style={styles.likeArea} pointerEvents="none">
+        <Ionicons name="heart-outline" size={15} color="#FFFFFF" />
+        <Text style={styles.likeCount}>
+          {formatCount(post.likeCount)}
+        </Text>
+      </View>
+    </View>
+  );
+
+  // 스타일리스트 뷰에서는 내 게시물과 겹치는 추천 게시물은 한 번만 보여준다
+  const myPostPks = new Set(myPosts.map((post) => post.postPk));
+
+  const recommendedPosts = isStylistView
+    ? posts.filter((post) => !myPostPks.has(post.postPk))
+    : posts;
+
+  const recommendedEmpty = (
+    <View style={styles.stateWrap}>
+      <View style={styles.stateIconCircle}>
+        <Ionicons name="images-outline" size={28} color={COLORS.purple} />
+      </View>
+      <Text style={styles.stateText}>아직 추천할 게시물이 없어요.</Text>
+    </View>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
@@ -268,11 +550,43 @@ export default function FeedScreen() {
       <View style={styles.appFrame}>
         <View style={styles.header}>
           <View style={styles.logoArea}>
-            <Image
-              source={require("../../assets/images/stylink-logo.png")}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+            <View style={extra.logoRow}>
+              {/* 유저 / 스타일리스트 뷰에 따라 로고 이미지 변경 */}
+              <Image
+                source={
+                  isStylistView
+                    ? require("../../assets/images/logo-stylist.png")
+                    : require("../../assets/images/logo-user.png")
+                }
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+
+              {/* 기존 배지 유지 */}
+              <View
+                style={[
+                  extra.badge,
+                  {
+                    backgroundColor: isStylistView
+                      ? STYLIST_NAVY
+                      : COLORS.purple,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    extra.badgeText,
+                    {
+                      color: isStylistView
+                        ? STYLIST_BADGE_TEXT
+                        : "#FFFFFF",
+                    },
+                  ]}
+                >
+                  {isStylistView ? "STYLIST" : "USER"}
+                </Text>
+              </View>
+            </View>
           </View>
 
           <View style={styles.headerActions}>
@@ -335,12 +649,46 @@ export default function FeedScreen() {
           </View>
         </View>
 
+        {/* 유저 / 스타일리스트 전환 토글 - 기존 코드 유지 */}
+        <View style={extra.toggleRow}>
+          <Text style={extra.toggleLabel}>
+            {isStylistView ? "스타일리스트" : "유저"}
+          </Text>
+
+          <Pressable
+            onPress={handleToggleView}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: isStylistView }}
+            accessibilityLabel={
+              isStylistView ? "유저 뷰로 전환" : "스타일리스트 뷰로 전환"
+            }
+            style={[
+              extra.toggleTrack,
+              {
+                backgroundColor: isStylistView
+                  ? STYLIST_NAVY
+                  : "#D6D4DC",
+              },
+            ]}
+          >
+            <View
+              style={[
+                extra.toggleThumb,
+                isStylistView ? { right: 3 } : { left: 3 },
+              ]}
+            />
+          </Pressable>
+        </View>
+
         <ScrollView
           style={styles.feedScroll}
           contentContainerStyle={styles.feedContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+            />
           }
         >
           {loading ? (
@@ -359,6 +707,7 @@ export default function FeedScreen() {
                   color={COLORS.purple}
                 />
               </View>
+
               <Text style={styles.stateText}>{errorMessage}</Text>
 
               <Pressable
@@ -368,93 +717,42 @@ export default function FeedScreen() {
                 <Text style={styles.retryText}>다시 시도</Text>
               </Pressable>
             </View>
-          ) : posts.length === 0 ? (
-            <View style={styles.stateWrap}>
-              <View style={styles.stateIconCircle}>
-                <Ionicons
-                  name="images-outline"
-                  size={28}
-                  color={COLORS.purple}
-                />
-              </View>
-              <Text style={styles.stateText}>아직 추천할 게시물이 없어요.</Text>
-            </View>
           ) : (
-            <View style={styles.feedGrid}>
-              {posts.map((post) => (
-                <View key={post.postPk} style={styles.postCard}>
-                  <Pressable
-                    onPress={() => handlePostPress(post)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${
-                      post.styleName || "게시물"
-                    } 상세 보기`}
-                  >
-                    <Image
-                      source={{ uri: post.imageUrl }}
-                      style={styles.postImage}
-                      resizeMode="cover"
-                    />
+            <>
+              {/* 스타일리스트 뷰: 내 게시물을 먼저 보여준다 */}
+              {isStylistView && (
+                <>
+                  <Text style={extra.sectionLabel}>내 게시물</Text>
 
-                    <LinearGradient
-                      colors={["rgba(0,0,0,0)", "rgba(10,8,20,0.6)"]}
-                      locations={[0, 1]}
-                      style={styles.imageGradient}
-                      pointerEvents="none"
-                    />
-                  </Pressable>
-
-                  <Pressable
-                    style={styles.stylistInfo}
-                    onPress={() => handleStylistPress(post)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${
-                      post.stylistNickname || "스타일리스트"
-                    } 프로필 보기`}
-                  >
-                    {(() => {
-                      const profileUri =
-                        post.stylistProfileImage ||
-                        post.profileImage ||
-                        post.stylistProfilePic;
-
-                      return profileUri ? (
-                        <Image
-                          source={{ uri: profileUri }}
-                          style={styles.stylistProfileImage}
-                        />
-                      ) : (
-                        <View style={styles.avatarFallback}>
-                          <Text style={styles.avatarFallbackText}>
-                            {(post.stylistNickname || "?")
-                              .slice(0, 1)
-                              .toUpperCase()}
-                          </Text>
-                        </View>
-                      );
-                    })()}
-
-                    <View style={styles.stylistTextArea}>
-                      <Text style={styles.stylistName} numberOfLines={1}>
-                        {post.stylistNickname || "스타일리스트"}
-                      </Text>
-
-                      <Text style={styles.stylistStyle} numberOfLines={1}>
-                        {post.styleName || "스타일"}
-                      </Text>
+                  {myPosts.length > 0 ? (
+                    <View style={styles.feedGrid}>
+                      {myPosts.map(renderPostCard)}
                     </View>
-                  </Pressable>
-
-                  {/* 좋아요 수 (우측 하단) */}
-                  <View style={styles.likeArea} pointerEvents="none">
-                    <Ionicons name="heart-outline" size={15} color="#FFFFFF" />
-                    <Text style={styles.likeCount}>
-                      {formatCount(post.likeCount)}
+                  ) : (
+                    <Text style={extra.myPostsEmpty}>
+                      아직 등록한 게시물이 없어요.
                     </Text>
-                  </View>
+                  )}
+                </>
+              )}
+
+              <Text
+                style={[
+                  extra.sectionLabel,
+                  isStylistView && extra.sectionLabelSpaced,
+                ]}
+              >
+                추천 게시물
+              </Text>
+
+              {recommendedPosts.length === 0 ? (
+                recommendedEmpty
+              ) : (
+                <View style={styles.feedGrid}>
+                  {recommendedPosts.map(renderPostCard)}
                 </View>
-              ))}
-            </View>
+              )}
+            </>
           )}
         </ScrollView>
       </View>
@@ -498,7 +796,9 @@ export default function FeedScreen() {
                 marginBottom: 24,
               }}
             >
-              스타일리스트만 게시물을 등록할 수 있어요!
+              {stylistModalType === "toggle"
+                ? "스타일리스트로 가입해야\n스타일리스트 화면으로 전환할 수 있어요!"
+                : "스타일리스트만 게시물을 등록할 수 있어요!"}
             </Text>
 
             <Pressable
@@ -513,7 +813,11 @@ export default function FeedScreen() {
               }}
             >
               <Text
-                style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "700" }}
+                style={{
+                  color: "#FFFFFF",
+                  fontSize: 14,
+                  fontWeight: "700",
+                }}
               >
                 스타일리스트로 가입하기
               </Text>
@@ -523,7 +827,9 @@ export default function FeedScreen() {
               onPress={() => setShowStylistModal(false)}
               style={{ marginTop: 12, padding: 6 }}
             >
-              <Text style={{ fontSize: 13, color: COLORS.subText }}>닫기</Text>
+              <Text style={{ fontSize: 13, color: COLORS.subText }}>
+                닫기
+              </Text>
             </Pressable>
           </Pressable>
         </Pressable>

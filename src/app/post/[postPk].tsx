@@ -1,3 +1,4 @@
+
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -5,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -17,7 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../../config/api";
 
 type PostDetail = {
   profileImage: string | null;
@@ -27,6 +29,7 @@ type PostDetail = {
   styleName: string;
   hashtags: string[];
   ratioType: string;
+  stylistPk: number;
 };
 
 type ReactionCount = {
@@ -45,9 +48,21 @@ export default function PostDetailScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  // 현재 화면에서 관리하는 좋아요 상태
   const [isLiked, setIsLiked] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
+
+  // 로그인한 스타일리스트 PK
+  const [myStylistPk, setMyStylistPk] = useState<number | null>(null);
+
+  // 게시물 메뉴 표시 여부
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // 본인 게시물인지 확인
+  const isOwner =
+    post !== null &&
+    myStylistPk !== null &&
+    post.stylistPk === myStylistPk;
 
   const getAccessToken = async (): Promise<string | null> => {
     if (Platform.OS === "web") {
@@ -56,6 +71,41 @@ export default function PostDetailScreen() {
 
     return await SecureStore.getItemAsync("accessToken");
   };
+
+  // 내 스타일리스트 정보 조회
+  const fetchMyStylistInfo = useCallback(async () => {
+    try {
+      const token = await getAccessToken();
+
+      if (!token) {
+        setMyStylistPk(null);
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/stylist/me`, {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        setMyStylistPk(null);
+        return;
+      }
+
+      const result = await response.json();
+      const data = result.data ?? result;
+
+      setMyStylistPk(
+        data.stylistPk != null ? Number(data.stylistPk) : null,
+      );
+    } catch (error) {
+      console.error("내 스타일리스트 정보 조회 오류:", error);
+      setMyStylistPk(null);
+    }
+  }, []);
 
   // 게시물 좋아요 개수 조회
   const fetchReactionCount = useCallback(async () => {
@@ -144,7 +194,6 @@ export default function PostDetailScreen() {
       }
 
       const result = await response.json();
-
       const detail: PostDetail = result.data ?? result;
 
       if (!detail || typeof detail.imageUrl !== "string") {
@@ -159,9 +208,9 @@ export default function PostDetailScreen() {
         styleName: detail.styleName ?? "",
         hashtags: Array.isArray(detail.hashtags) ? detail.hashtags : [],
         ratioType: detail.ratioType ?? "",
+        stylistPk: Number(detail.stylistPk),
       });
 
-      // 상세 정보 조회 후 실제 좋아요 개수 조회
       try {
         await fetchReactionCount();
       } catch (reactionError) {
@@ -183,12 +232,118 @@ export default function PostDetailScreen() {
   }, [postPk, fetchReactionCount]);
 
   useEffect(() => {
+    fetchMyStylistInfo();
     fetchPostDetail();
-  }, [fetchPostDetail]);
+  }, [fetchMyStylistInfo, fetchPostDetail]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchPostDetail();
+  };
+
+  // 게시물 수정 화면으로 이동
+  const handleEditPost = () => {
+    if (!postPk) return;
+
+    setMenuVisible(false);
+
+    router.push({
+      pathname: "/create-post",
+      params: {
+        editPostPk: String(postPk),
+      },
+    });
+  };
+
+  // 게시물 삭제
+  const handleDeletePost = async () => {
+    if (!postPk || deleteLoading) return;
+
+    const token = await getAccessToken();
+
+    if (!token) {
+      Alert.alert("로그인 필요", "로그인 후 이용해주세요.");
+      return;
+    }
+
+    setDeleteLoading(true);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/post/${encodeURIComponent(postPk)}`,
+        {
+          method: "DELETE",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `게시물 삭제에 실패했습니다. (HTTP ${response.status})`,
+        );
+      }
+
+      setMenuVisible(false);
+
+      if (Platform.OS === "web") {
+        window.alert("게시물이 삭제되었습니다.");
+      } else {
+        Alert.alert("삭제 완료", "게시물이 삭제되었습니다.");
+      }
+
+      router.back();
+    } catch (error) {
+      console.error("게시물 삭제 오류:", error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "게시물 삭제 중 오류가 발생했습니다.";
+
+      if (Platform.OS === "web") {
+        window.alert(message);
+      } else {
+        Alert.alert("삭제 실패", message);
+      }
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // 삭제 확인
+  const confirmDeletePost = () => {
+    setMenuVisible(false);
+
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        "정말 이 게시물을 삭제하시겠습니까?\n삭제한 게시물은 복구할 수 없습니다.",
+      );
+
+      if (confirmed) {
+        handleDeletePost();
+      }
+
+      return;
+    }
+
+    Alert.alert(
+      "게시물 삭제",
+      "정말 이 게시물을 삭제하시겠습니까?\n삭제한 게시물은 복구할 수 없습니다.",
+      [
+        {
+          text: "취소",
+          style: "cancel",
+        },
+        {
+          text: "삭제",
+          style: "destructive",
+          onPress: handleDeletePost,
+        },
+      ],
+    );
   };
 
   // 좋아요 토글
@@ -206,13 +361,16 @@ export default function PostDetailScreen() {
     const previousCount = post.likeCount;
     const nextLiked = !previousLiked;
 
-    // 화면을 먼저 업데이트
     setIsLiked(nextLiked);
+
     setPost((current) =>
       current
         ? {
             ...current,
-            likeCount: Math.max(0, current.likeCount + (nextLiked ? 1 : -1)),
+            likeCount: Math.max(
+              0,
+              current.likeCount + (nextLiked ? 1 : -1),
+            ),
           }
         : current,
     );
@@ -241,13 +399,12 @@ export default function PostDetailScreen() {
         );
       }
 
-      // 서버에서 최종 좋아요 개수를 다시 가져옴
       await fetchReactionCount();
     } catch (error) {
       console.error("좋아요 처리 오류:", error);
 
-      // 실패하면 기존 화면 상태로 복구
       setIsLiked(previousLiked);
+
       setPost((current) =>
         current
           ? {
@@ -259,7 +416,9 @@ export default function PostDetailScreen() {
 
       Alert.alert(
         "좋아요 처리 실패",
-        error instanceof Error ? error.message : "잠시 후 다시 시도해주세요.",
+        error instanceof Error
+          ? error.message
+          : "잠시 후 다시 시도해주세요.",
       );
     } finally {
       setLikeLoading(false);
@@ -304,16 +463,18 @@ export default function PostDetailScreen() {
 
           <Text style={styles.headerTitle}>게시물</Text>
 
-          <Pressable
-            style={styles.headerButton}
-            onPress={() =>
-              Alert.alert("게시물", "게시물 메뉴는 추후 연결할 예정입니다.")
-            }
-            accessibilityRole="button"
-            accessibilityLabel="게시물 메뉴"
-          >
-            <Text style={styles.moreIcon}>⋮</Text>
-          </Pressable>
+          {isOwner ? (
+            <Pressable
+              style={styles.headerButton}
+              onPress={() => setMenuVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="게시물 메뉴"
+            >
+              <Text style={styles.moreIcon}>⋮</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.headerButton} />
+          )}
         </View>
 
         {loading ? (
@@ -459,6 +620,54 @@ export default function PostDetailScreen() {
           </ScrollView>
         ) : null}
       </View>
+
+      {/* 게시물 수정 / 삭제 메뉴 */}
+      <Modal
+        transparent
+        visible={menuVisible}
+        animationType="fade"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setMenuVisible(false)}
+        >
+          <Pressable
+            style={styles.menuContainer}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Text style={styles.menuTitle}>게시물 관리</Text>
+
+            <Pressable
+              style={styles.menuItem}
+              onPress={handleEditPost}
+            >
+              <Text style={styles.menuItemText}>게시물 수정</Text>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItem}
+              onPress={confirmDeletePost}
+              disabled={deleteLoading}
+            >
+              <Text style={styles.deleteMenuText}>
+                {deleteLoading ? "삭제 중..." : "게시물 삭제"}
+              </Text>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => setMenuVisible(false)}
+            >
+              <Text style={styles.cancelMenuText}>취소</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -666,5 +875,61 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontWeight: "600",
+  },
+
+  // 게시물 메뉴 모달
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 30,
+  },
+  menuContainer: {
+    width: "100%",
+    maxWidth: 340,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 8,
+    elevation: 8,
+    shadowColor: "#000000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+  },
+  menuTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#222222",
+    textAlign: "center",
+    paddingBottom: 12,
+  },
+  menuItem: {
+    minHeight: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuItemText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333333",
+  },
+  deleteMenuText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#E5484D",
+  },
+  cancelMenuText: {
+    fontSize: 14,
+    color: "#777777",
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: "#EEEEEE",
   },
 });

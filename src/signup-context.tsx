@@ -10,6 +10,14 @@ export type SignupData = {
   gender: number | null;
   tall: string;
   weight: string;
+  // 상세 신체 정보 (선택, 7개 모두 입력하거나 모두 비워야 함)
+  chestSize: string;
+  waistSize: string;
+  shoulderWidth: string;
+  hips: string;
+  thigh: string;
+  calf: string;
+  leg: string;
   selectedStyles: string[];
   nickname: string;
   profileImage: null;
@@ -25,6 +33,13 @@ const initialData: SignupData = {
   gender: null,
   tall: "",
   weight: "",
+  chestSize: "",
+  waistSize: "",
+  shoulderWidth: "",
+  hips: "",
+  thigh: "",
+  calf: "",
+  leg: "",
   selectedStyles: [],
   nickname: "",
   profileImage: null,

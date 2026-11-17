@@ -17,7 +17,7 @@ import * as SecureStore from "expo-secure-store";
 import { palette } from "../../styles/theme";
 
 const PURPLE = palette.primary;
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../../config/api";
 
 type ChatRoom = {
   roomPk: number;

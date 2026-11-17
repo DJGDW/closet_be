@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState, useCallback } from "react";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import {
   Alert,
+  Image,
   Pressable,
   ScrollView,
   StatusBar,
@@ -17,7 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { styles } from "../styles/mypage.styles";
 import { palette } from "../styles/theme";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../config/api";
 
 type LoginUser = {
   userPk?: number;
@@ -47,6 +48,7 @@ type Order = {
 
 export default function MyPageScreen() {
   const [loginUser, setLoginUser] = useState<LoginUser | null>(null);
+  const [profilePic, setProfilePic] = useState<string | null>(null);
 
   const [isStylist, setIsStylist] = useState(false);
   const [checkingStylist, setCheckingStylist] = useState(true);
@@ -90,6 +92,30 @@ export default function MyPageScreen() {
 
     loadLoginUser();
   }, []);
+
+  // 내 프로필 사진 조회 (GET /user/me)
+  // 화면에 다시 돌아올 때마다 갱신해서 사진 변경이 바로 반영되게 함
+  useFocusEffect(
+    useCallback(() => {
+      (async () => {
+        try {
+          const accessToken = await getAccessToken();
+          if (!accessToken) return;
+
+          const response = await fetch(`${API_BASE_URL}/user/me`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (!response.ok) return;
+
+          const result = await response.json();
+          const data = result?.data ?? result?.result ?? result;
+          setProfilePic(data?.profilePic ?? null);
+        } catch (error) {
+          console.error("내 프로필 사진 조회 오류:", error);
+        }
+      })();
+    }, []),
+  );
 
   // 스타일리스트 등록 여부 확인
   useEffect(() => {
@@ -350,8 +376,16 @@ export default function MyPageScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.profileSection}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={38} color={palette.primaryLine} />
+            <View style={[styles.avatar, { overflow: "hidden" }]}>
+              {profilePic ? (
+                <Image
+                  source={{ uri: profilePic }}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Ionicons name="person" size={38} color={palette.primaryLine} />
+              )}
             </View>
 
             <View style={styles.profileInfo}>
@@ -540,6 +574,29 @@ export default function MyPageScreen() {
 
                 <View style={styles.menuRight}>
                   <Text style={styles.menuCount}>{saleCount ?? "—"}</Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color={palette.textMute}
+                  />
+                </View>
+              </Pressable>
+            )}
+
+            {/* 게시글 관리: 스타일리스트에게만 표시 */}
+            {!checkingStylist && isStylist && (
+              <Pressable
+                style={styles.menuRow}
+                onPress={() => router.push("/my-posts" as any)}
+              >
+                <View style={styles.menuLabelArea}>
+                  <View style={[styles.menuIconTile, styles.tileSale]}>
+                    <Ionicons name="images-outline" size={18} color="#2E9E75" />
+                  </View>
+                  <Text style={styles.menuLabel}>게시글 관리</Text>
+                </View>
+
+                <View style={styles.menuRight}>
                   <Ionicons
                     name="chevron-forward"
                     size={16}

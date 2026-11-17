@@ -17,6 +17,7 @@ import {
 import { useSignup } from "../signup-context";
 import common from "../styles/signup-common.styles";
 import styles from "../styles/signup-step4.styles";
+import { API_BASE_URL } from "../config/api";
 
 type ResultType = "success" | "error" | "";
 
@@ -28,7 +29,16 @@ type PickedImage = {
   mimeType: string;
 };
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+// 상세 신체 정보 키 (백엔드 body의 선택 항목 7개)
+const DETAIL_KEYS = [
+  "chestSize",
+  "waistSize",
+  "shoulderWidth",
+  "hips",
+  "thigh",
+  "calf",
+  "leg",
+] as const;
 
 const STYLE_IDS: Record<string, number> = {
   캐주얼: 1,
@@ -264,6 +274,39 @@ export default function SignupStep4() {
       return;
     }
 
+    // 상세 신체 정보: 7개가 모두 입력된 경우에만 전송한다.
+    // (백엔드는 "전부 입력하거나 전부 비워야" 하며, 일부만 보내면 400 오류가 난다)
+    const filledDetailCount = DETAIL_KEYS.filter(
+      (key) => String(data[key] ?? "").trim() !== "",
+    ).length;
+
+    if (filledDetailCount > 0 && filledDetailCount < DETAIL_KEYS.length) {
+      showMessage(
+        "상세 신체 정보 확인",
+        "상세 신체 정보는 모두 입력하거나 모두 비워야 해요. 이전 단계에서 확인해 주세요.",
+      );
+      return;
+    }
+
+    const detailBody: Partial<Record<(typeof DETAIL_KEYS)[number], number>> =
+      {};
+
+    if (filledDetailCount === DETAIL_KEYS.length) {
+      for (const key of DETAIL_KEYS) {
+        const value = Number(data[key]);
+
+        if (!Number.isInteger(value) || value <= 0) {
+          showMessage(
+            "상세 신체 정보 확인",
+            "상세 신체 정보를 올바른 숫자로 입력해 주세요.",
+          );
+          return;
+        }
+
+        detailBody[key] = value;
+      }
+    }
+
     // 스타일 이름을 백엔드 ID로 변환
     const styleTypePks: number[] = [];
 
@@ -294,6 +337,7 @@ export default function SignupStep4() {
       body: {
         tall,
         weight,
+        ...detailBody,
       },
       profilePic: null,
       nickname: trimmedNickname,
@@ -354,7 +398,7 @@ export default function SignupStep4() {
 
         if (response.status === 400) {
           throw new Error(
-            "입력 정보가 올바르지 않습니다. 생년월일, 키, 몸무게 및 필수 입력값을 확인해 주세요.",
+            "입력 정보가 올바르지 않습니다. 생년월일, 키, 몸무게, 상세 신체 정보 및 필수 입력값을 확인해 주세요.",
           );
         }
 

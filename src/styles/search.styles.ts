@@ -1,3 +1,4 @@
+
 import { StyleSheet } from "react-native";
 
 const PURPLE = "#4D458B";
@@ -51,7 +52,7 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
 
-  // 한 줄 카테고리 칩 + 오른쪽 고정 필터 버튼
+  // 카테고리 칩
   categoryRow: {
     height: 34,
     marginTop: 13,
@@ -66,7 +67,6 @@ const styles = StyleSheet.create({
 
   categoryList: {
     paddingLeft: 14,
-    // 마지막 칩이 필터 버튼 밑에 가리지 않도록 오른쪽 여백 확보
     paddingRight: 110,
     alignItems: "center",
     gap: 7,
@@ -97,6 +97,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
   },
 
+  // 오른쪽 고정 필터
   filterDock: {
     position: "absolute",
     top: 0,
@@ -135,7 +136,7 @@ const styles = StyleSheet.create({
     color: "#222222",
   },
 
-  // 필터 적용 후 요약 줄
+  // 필터 적용 요약
   appliedRow: {
     height: 30,
     marginTop: 20,
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
     color: "#111111",
   },
 
-  // 포트폴리오 2열 배치
+  // 3열 포트폴리오 그리드
   gridContent: {
     paddingBottom: 28,
   },
@@ -190,17 +191,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     paddingHorizontal: 14,
     paddingTop: 0,
-    gap: 12,
+    gap: 8,
   },
 
   gridColumn: {
     flex: 1,
     minWidth: 0,
-    gap: 11,
+    gap: 8,
   },
 
+  // 모든 카드 동일한 비율
+  // aspectRatio 0.62 = 높이가 너비의 약 1.61배
   postCard: {
     width: "100%",
+    aspectRatio: 0.62,
     position: "relative",
     overflow: "hidden",
     borderRadius: 8,
@@ -223,20 +227,29 @@ const styles = StyleSheet.create({
     height: "45%",
   },
 
+  // 하단 스타일리스트 정보
   stylistInfo: {
     position: "absolute",
-    left: 8,
-    right: 6,
-    bottom: 9,
+    left: 6,
+    right: 5,
+    bottom: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 5,
+  },
+
+  profileImage: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.9)",
   },
 
   profileCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 17,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.9)",
     backgroundColor: "rgba(255,255,255,0.18)",
@@ -246,7 +259,7 @@ const styles = StyleSheet.create({
 
   profileInitial: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "700",
   },
 
@@ -258,42 +271,44 @@ const styles = StyleSheet.create({
 
   stylistName: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: "700",
     marginBottom: 2,
   },
 
   stylistStyle: {
     color: "#FFFFFF",
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: "400",
   },
 
+  // 좋아요 배지
   likeBadge: {
     position: "absolute",
-    top: 9,
-    right: 9,
+    top: 7,
+    right: 6,
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
     borderRadius: 15,
     backgroundColor: "rgba(0,0,0,0.42)",
   },
 
   likeCount: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
     color: "#FFFFFF",
   },
 
+  // 스타일리스트 프로필 클릭 영역
   profileHitArea: {
     position: "absolute",
     left: 0,
     bottom: 0,
-    width: 150,
-    height: 58,
+    width: 110,
+    height: 48,
   },
 
   // 검색어에 맞는 스타일리스트
@@ -344,6 +359,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  // 로딩 / 오류
   centerState: {
     flex: 1,
     alignItems: "center",

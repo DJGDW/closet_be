@@ -1,4 +1,3 @@
-
 import { StyleSheet } from "react-native";
 
 import { palette, radius } from "./theme";
@@ -30,7 +29,7 @@ export const styles = StyleSheet.create({
 
   header: {
     height: 58,
-    paddingLeft: 16,
+    paddingLeft: 0,
     paddingRight: 10,
     flexDirection: "row",
     alignItems: "center",

@@ -8,7 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { styles } from "../styles/feed.styles";
 import { palette } from "../styles/theme";
 
-const API_BASE_URL = "http://192.168.0.5:8080";
+import { API_BASE_URL } from "../config/api";
 
 type TabKey = "home" | "search" | "chat" | "mypage";
 

@@ -1,4 +1,4 @@
-﻿import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { Client } from "@stomp/stompjs";
 import {
   View,
@@ -19,11 +19,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import * as ImagePicker from "expo-image-picker";
+import { File as ExpoFile } from "expo-file-system";
 import { palette } from "../../styles/theme";
 
 const PURPLE = palette.primary;
-const API_BASE_URL = "http://192.168.0.5:8080";
-const WS_URL = "ws://192.168.0.5:8080/ws";
+import { API_BASE_URL, WS_URL } from "../../config/api";
+
 
 type ChatMessage = {
   msgPk: number;
@@ -149,6 +150,9 @@ export default function ChatRoomScreen() {
   const [processingMessage, setProcessingMessage] = useState(false);
   const [calling, setCalling] = useState(false);
   const handledCallEvents = useRef(new Set<string>());
+
+  // 채팅 전송용 STOMP 클라이언트 (영상통화 이벤트와 같은 연결을 공유)
+  const chatClientRef = useRef<Client | null>(null);
 
   // 키보드가 열려 있으면 키보드가 하단을 차지하므로 시스템 바 여백은 제외
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -706,9 +710,8 @@ export default function ChatRoomScreen() {
     markAsRead();
   }, [fetchMessages, markAsRead]);
 
-  // 영상통화 WebSocket 연결
   // --------------------------------------------------
-  // 영상통화 WebSocket 연결
+  // WebSocket 연결 (영상통화 이벤트 + 채팅 메시지)
   // --------------------------------------------------
 
   useEffect(() => {
@@ -735,8 +738,9 @@ export default function ChatRoomScreen() {
           heartbeatOutgoing: 10000,
 
           onConnect: () => {
-            console.log("영상통화 WebSocket 연결 성공");
+            console.log("WebSocket 연결 성공");
 
+            // 영상통화 이벤트 구독
             client?.subscribe("/user/queue/video-call", (message) => {
               try {
                 const event = JSON.parse(message.body);
@@ -747,7 +751,30 @@ export default function ChatRoomScreen() {
               }
             });
 
-            console.log("영상통화 이벤트 구독 완료");
+            // 채팅 메시지 구독
+            client?.subscribe(`/topic/chat/${roomId}`, (message) => {
+              try {
+                const incoming: ChatMessage = JSON.parse(message.body);
+
+                setMessages((previous) =>
+                  previous.some((item) => item.msgPk === incoming.msgPk)
+                    ? previous
+                    : [...previous, incoming],
+                );
+
+                // 상대가 보낸 메시지는 읽음 처리
+                if (incoming.senderPk !== myUserPk) {
+                  markAsRead();
+                }
+              } catch (error) {
+                console.error("채팅 메시지 파싱 오류:", error);
+              }
+            });
+
+            // 연결이 끊겼다 다시 붙은 경우를 위해 한 번 동기화
+            fetchMessages();
+
+            console.log("WebSocket 구독 완료");
           },
 
           onStompError: (frame) => {
@@ -761,10 +788,11 @@ export default function ChatRoomScreen() {
           },
 
           onWebSocketClose: () => {
-            console.log("영상통화 WebSocket 연결 종료");
+            console.log("WebSocket 연결 종료");
           },
         });
 
+        chatClientRef.current = client;
         client.activate();
       } catch (error) {
         console.error("WebSocket 초기화 오류:", error);
@@ -775,11 +803,12 @@ export default function ChatRoomScreen() {
 
     return () => {
       cancelled = true;
+      chatClientRef.current = null;
       client?.deactivate();
 
-      console.log("영상통화 WebSocket 연결 해제");
+      console.log("WebSocket 연결 해제");
     };
-  }, [myUserPk, handleVideoCallEvent]);
+  }, [myUserPk, roomId, handleVideoCallEvent, fetchMessages, markAsRead]);
 
   // --------------------------------------------------
   // 사진 선택
@@ -944,11 +973,27 @@ export default function ChatRoomScreen() {
     }
   };
 
+  // 메시지 전송: WebSocket이 연결되어 있으면 STOMP로, 아니면 REST로 전송
   const sendMessage = async () => {
     const trimmed = input.trim();
 
     if (!trimmed || sending || !roomId) return;
 
+    // 서버가 /topic/chat/{roomPk}로 브로드캐스트하므로 화면에는 구독으로 들어온다
+    const client = chatClientRef.current;
+
+    if (client?.connected) {
+      client.publish({
+        destination: `/app/chat/${roomId}/message`,
+        body: trimmed,
+        headers: { "content-type": "text/plain" },
+      });
+
+      setInput("");
+      return;
+    }
+
+    // 연결 전이면 기존 REST로 전송
     setSending(true);
 
     try {
@@ -1121,53 +1166,78 @@ export default function ChatRoomScreen() {
       const token = await getAccessToken();
 
       if (!token) {
-        Alert.alert("로그인 필요", "로그인 후 이용해주세요.");
+        showMessage("로그인 필요", "로그인 후 이용해주세요.");
         return;
       }
 
       const formData = new FormData();
 
+      const fileName =
+        selectedImage.fileName || `chat_image_${Date.now()}.jpg`;
+
+      const mimeType = selectedImage.mimeType || "image/jpeg";
+
       if (Platform.OS === "web") {
+        // 웹 환경
         const imageResponse = await fetch(selectedImage.uri);
+
+        if (!imageResponse.ok) {
+          throw new Error("선택한 이미지를 읽을 수 없습니다.");
+        }
+
         const blob = await imageResponse.blob();
 
         formData.append(
           "images",
-          new File([blob], selectedImage.fileName || "image.jpg", {
-            type: blob.type || "image/jpeg",
-          }),
+          new File([blob], fileName, {
+            type: mimeType,
+          }) as any,
         );
       } else {
-        formData.append("images", {
-          uri: selectedImage.uri,
-          name: selectedImage.fileName || "image.jpg",
-          type: selectedImage.mimeType || "image/jpeg",
-        } as any);
+        // iOS / Android 환경
+        const imageFile = new ExpoFile(selectedImage.uri);
+
+        formData.append("images", imageFile as any);
       }
+
+      console.log("이미지 업로드 시작");
+      console.log("파일명:", fileName);
+      console.log("파일 형식:", mimeType);
+      console.log("이미지 URI:", selectedImage.uri);
 
       const response = await fetch(`${API_BASE_URL}/chat/${roomId}/images`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
+          Accept: "application/json",
         },
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
+      const responseText = await response.text();
 
-        throw new Error(errorText || `이미지 전송 실패 (${response.status})`);
+      console.log("이미지 업로드 HTTP 상태:", response.status);
+      console.log("이미지 업로드 응답:", responseText);
+
+      if (!response.ok) {
+        throw new Error(
+          responseText || `이미지 전송 실패 (${response.status})`,
+        );
       }
 
       setSelectedImage(null);
 
       await fetchMessages();
+
+      showMessage("전송 완료", "사진을 전송했습니다.");
     } catch (error) {
       console.error("이미지 전송 오류:", error);
 
-      Alert.alert(
+      showMessage(
         "전송 실패",
-        "이미지를 보내지 못했습니다. 다시 시도해주세요.",
+        error instanceof Error
+          ? error.message
+          : "이미지를 보내지 못했습니다.",
       );
     } finally {
       setSending(false);

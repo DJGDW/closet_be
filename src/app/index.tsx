@@ -12,6 +12,7 @@ import {
 
 import styles from "../styles/login.styles";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "../config/api";
 
 export default function LoginScreen() {
   const [userId, setUserId] = useState("");
@@ -32,7 +33,7 @@ export default function LoginScreen() {
     setMessage("로그인 중...");
 
     try {
-      const response = await fetch("http://192.168.0.5:8080/user/login", {
+      const response = await fetch(`${API_BASE_URL}/user/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -87,7 +88,7 @@ export default function LoginScreen() {
     <View style={styles.webBackground}>
       <View style={styles.screen}>
         <Image
-          source={require("../../assets/images/stylink-logo.png")}
+          source={require("../../assets/images/logo-user.png")}
           style={styles.logoImage}
           resizeMode="contain"
         />
